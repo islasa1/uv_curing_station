@@ -13,7 +13,7 @@ logging.basicConfig(
 # ignore PIL debug messages
 logging.getLogger('PIL').setLevel( logging.ERROR )
 
-def display_settings( args )
+def display_settings( args ):
     iface = ''
     display_types = cmdline.get_display_types()
     if args.display not in display_types['emulator']:
@@ -34,6 +34,7 @@ def display_settings( args )
 
 def get_device( configuration ):
     # load config from file
+    parser = cmdline.create_parser( description="Please dont" )
     config = cmdline.load_config( configuration )
     args = parser.parse_args( config )
 

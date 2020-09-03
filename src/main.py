@@ -7,10 +7,14 @@ import sys
 import signal 
 
 if __name__ == '__main__':
-  device = luma_device( sys.argv[1] )
+  device = luma_device.get_device( sys.argv[1] )
   frameReg = luma_sprite.framerate_regulator( fps=30 )
 
-  with frameReg :
-    with luma_render.canvas( device, dither=True ) as draw :
+  
+  for deg in range( 0, 135, 5 ) :
 
-      draw.arc( [ 20, 20, 85, 85 ], 45, 135 )
+    with frameReg :
+      with luma_render.canvas( device, dither=True ) as draw :
+
+        draw.arc( [ 20, 20, 85, 85 ], 45 + deg, 135 + deg, width=2, fill="green" )
+#      signal.pause()
