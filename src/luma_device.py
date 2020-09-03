@@ -1,28 +1,19 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) 2014-18 Richard Hull and contributors
-# See LICENSE.rst for details.
-
+# Originally from LUMA LCD
 import sys
 import logging
 
 from luma.core import cmdline, error
-
 
 # logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)-15s - %(message)s'
 )
+
 # ignore PIL debug messages
-logging.getLogger('PIL').setLevel(logging.ERROR)
+logging.getLogger('PIL').setLevel( logging.ERROR )
 
-
-def display_settings(args):
-    """
-    Display a short summary of the settings.
-
-    :rtype: str
-    """
+def display_settings( args )
     iface = ''
     display_types = cmdline.get_display_types()
     if args.display not in display_types['emulator']:
@@ -39,29 +30,18 @@ def display_settings(args):
         lib_name, lib_version, luma.core.__version__)
 
     return 'Version: {}\nDisplay: {}\n{}Dimensions: {} x {}\n{}'.format(
-        version, args.display, iface, args.width, args.height, '-' * 60)
+        version, args.display, iface, args.width, args.height, '-' * 60 )
 
+def get_device( configuration ):
+    # load config from file
+    config = cmdline.load_config( configuration )
+    args = parser.parse_args( config )
 
-def get_device(actual_args=None):
-    """
-    Create device from command-line arguments and return it.
-    """
-    if actual_args is None:
-        actual_args = sys.argv[1:]
-    parser = cmdline.create_parser(description='luma.examples arguments')
-    args = parser.parse_args(actual_args)
-
-    if args.config:
-        # load config from file
-        config = cmdline.load_config(args.config)
-        args = parser.parse_args(config + actual_args)
-
-    print(display_settings(args))
+    print( display_settings( args ) )
 
     # create device
     try:
         device = cmdline.create_device(args)
     except error.Error as e:
         parser.error(e)
-
     return device
