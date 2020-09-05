@@ -2,14 +2,16 @@ import PIL
 import numpy as np
 
 class Widget( object ) :
-  def __init__( self, canvas, x=0, y=0, width=1, height=1 ):
+  def __init__( self, x=0, y=0, width=1, height=1 ):
     self.x_ = x
     self.y_ = y
     self.width_ = width
     self.height_ = height
     self.fg_     = "white"
     self.bg_     = "black"
-    self.canvas_ = canvas
+    self.activefg_ = "black"
+    self.activeBg_ = "white"
+    self.canvas_ = None
 
   def setX( self, x ) :
     self.x_ = x
@@ -46,14 +48,34 @@ class Widget( object ) :
   def flush( self, img ) :
     self.canvas_.merge( self.draw() )
 
-  def draw( self ) :
+  def draw( self, canvas ) :
+    self.canvas_ = canvas
+    self.render()
+
+  def render( self ) :
     pass
 
 
+class TextBox( Widget ):
+  """A Scolling graph"""
+  def __init__( self, x=0, y=0, width=1, height=1 ):
+    super(Graph, self).__init__( x, y, width, height )
+    self.borderpx_  = 2
+    self.text_      = "Hello World!"
+    self.textColor_    = "green"
+    self.font_      = None
+    self.textPosX_  = 0
+    self.textPosY_  = 0
+    self.align_     = "left"
+
+  def render( self ) :
+    self.canvas_.rectangle( [ self.x_, self.y_, self.x_ + self.width_, self.y_ + self.height_ ], fill=None, outline=self.fg_, width=self.borderpx_  )
+    self.canvas_.text( [ self.textPosX_ + self.x_, self.textPosY_ + self.y_ ], self.text_, font=None, fill=self.textColor_, align=self.align_ )
+
 class Graph(Widget):
   """A Scolling graph"""
-  def __init__( self, canvas, size=50, x=0, y=0, width=1, height=1 ):
-    super(Graph, self).__init__( canvas, x, y, width, height )
+  def __init__( self, x=0, y=0, width=1, height=1 ):
+    super(Graph, self).__init__( x, y, width, height )
     self.drawPosX_ = 0
     self.drawPosY_ = 0
     self.borderpx_ = 2
@@ -69,25 +91,19 @@ class Graph(Widget):
     self.dataMin_     = 0
     self.dataMax_     = 0
 
-  def setDrawPosX( self, pos ) :
-    self.drawPosX_ = pos % self.size_
-
   def moveLeft( self ) :
-    self.setDrawPos( self.drawPosX_ - 1 )
+    self.drawPosX_ -= 1
 
   def moveRight( self ) :
-    self.setDrawPos( self.drawPosX_ + 1 )
-
-  def setDrawPosY( self, pos ) :
-    self.drawPosY_ = pos % self.size_
+    self.drawPosX_ += 1
 
   def moveUp( self ) :
-    self.setDrawPos( self.drawPosY_ - 1 )
+    self.drawPosY_ -= 1
 
   def moveDown( self ) :
-    self.setDrawPos( self.drawPosY_ + 1 )
+    self.drawPosY_ += 1 
 
-  def draw( self ) :
+  def render( self ) :
     self.canvas_.rectangle( [ self.x_, self.y_, self.x_ + self.width_, self.y_ + self.height_ ], fill=None, outline=self.fg_, width=self.borderpx_  )
 
     for linePos in range( self.x_ + self.borderpx_,
@@ -117,7 +133,11 @@ class Graph(Widget):
     return ( 1.0 - ( data - self.dataMin_ ) / ( self.dataMax_ - self.dataMin_ ) ) * ( self.height_ - 2 * self.borderpx_ )  + ( self.y_ + self.borderpx_ )
 
   
-  def drawData( self, data, incx, incy, color, ptColor ) :
+  def drawData( self, data, incx, incy, color, ptColor, canvas=None ) :
+    if canvas is not None :
+      # overwrite current canvas
+      self.canvas_ = canvas
+      
     # First find start position based on current draw position
     dataPerPixX = incx / self.gridPxIncx_
     dataPerPixY = incy / self.gridPxIncx_
@@ -127,6 +147,8 @@ class Graph(Widget):
 
     self.dataMin_     = self.drawPosY_ * dataPerPixY
     self.dataMax_     = dataPerPixY * ( self.height_ - 2 * self.borderpx_ ) + self.dataMin_
+
+    print( "Plotting from X[ " + str( self.dataStart_ ) + ", " + str( self.dataEnd_ ) + " ] between Y[ " + str( self.dataMin_ ) + ", " + str( self.dataMax_ ) + " ]" )
 
     # Find bounding data
     indicesToDraw = ( data[0] >= self.dataStart_ ) & ( data[0] <= self.dataEnd_ )
