@@ -8,14 +8,21 @@ Created on Thu Sep  3 21:03:44 2020
 
 import PIL
 import widgets
+import numpy as np
 
-baseCanvas = PIL.Image.new( "RGB", ( 256, 256 ) )
+baseCanvas = PIL.Image.new( "RGB", ( 160, 128 ) )
 widgetCanvas = PIL.ImageDraw.Draw( baseCanvas )
 
-graph=widgets.Graph( widgetCanvas, size=100, dims=3, x=15, y=15, width=100, height=75 )
-graph.draw()
-graph.lineColors_[0] = "red"
-graph.lineColors_[0] = "green"
-graph.lineColors_[0] = "blue"
+graph = widgets.Graph( widgetCanvas, x=38, y=44, width=84, height=84 )
+graph.gridPxIncx_ = 8
+graph.gridPxIncy_ = 8
 
+
+data = np.array( ( range( 0, 101, 20 ), range( 0, 101, 20 ) ) )
+
+# PIL is weird as fuck and renders in reverse order, layering things underneath
+graph.draw()
+graph.drawData( data, 10, 10, "blue", "red" )
+
+graph.draw()
 baseCanvas.show()
