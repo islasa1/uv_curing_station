@@ -91,16 +91,25 @@ class Renderer( object ) :
     self.hwctrl_.buttons_[ "right" ].when_pressed = self.buttonPress
     self.hwctrl_.buttons_[ "key3"  ].when_pressed = self.buttonPress
 
+    self.valueSubdivisions_ = 10
+    
     # Widgets
     self.mainWidgets_ = {}
-    self.mainWidgets_[ "PreviewGraph" ] = widgets.Graph( x=38, y=44, width=84, height=84 )
+    self.mainWidgets_[ "PreviewGraph" ] = widgets.Graph( x=43, y=64, width=84, height=64 )
     self.mainWidgets_[ "PreviewGraph" ].gridPxIncx_ = 8
-    self.mainWidgets_[ "PreviewGraph" ].gridPxIncy_ = 8
+    self.mainWidgets_[ "PreviewGraph" ].gridPxIncy_ = 6
     self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", "darkgreen", 1, 5,  0,  0, 43, 16, self.font_, 1 )
     self.mainWidgets_[ "Configs"      ] = widgets.TextBox( "Edit",     "darkgreen", 4, 5, 44,  0, 27, 16, self.font_, 1 )
     self.mainWidgets_[ "Manual"       ] = widgets.TextBox( "Devs",     "darkgreen", 4, 5, 72,  0, 27, 16, self.font_, 1 )
     self.mainWidgets_[ "Help"         ] = widgets.TextBox( "Help",     "darkgreen", 4, 5, 100, 0, 27, 16, self.font_, 1 )
 
+    self.mainWidgets_[ "ConfigsBar"   ] = widgets.TextBox( "No Configurations Loaded", "darkgreen", 4, 5, 0, 17, 127, 16, self.font_, 1 )
+    self.mainWidgets_[ "Resolution"   ] = widgets.TextBox( "Res: ??? sec", "darkgreen", 1, 5, 75, 48, 52, 16, self.font_, 1 )
+    
+    self.configWidgets_ = []
+    for cfg in self.model_.configs_ :
+      self.addConfig( cfg )
+    
     for name, widget in self.mainWidgets_.items() :
       widget.name_ = name
       widget.fg_ = "green"
@@ -143,12 +152,16 @@ class Renderer( object ) :
     
     for name, widgets in self.mainWidgets_.items() :
       widgets.draw( canvas )
+    for cfg in self.configWidgets_ :
+      cfg["widget"].draw( canvas )
       
-    if len( self.model_.configs_ ) > 0 :
-      if self.model_.configs_[0].datasets_["zaxis"] :
-        data = np.array( ( self.model_.configs_[0].datasets_["zaxis"].time_,
-                           self.model_.configs_[0].datasets_["zaxis"].value_ ) )
-        self.mainWidgets_[ "PreviewGraph" ].drawData( data, 10, 10, "blue", "red" )
+    if self.model_.currentConfigIdx_ :
+      for name, dataset in self.model_.configs_[self.model_.currentConfigIdx_].datasets_.items() :
+        data = np.array( ( dataset.time_,
+                           dataset.value_ ) )
+        incy = ( dataset.max_ - dataset.min_ ) / self.valueSubdivisions_
+        
+        self.mainWidgets_[ "PreviewGraph" ].drawData( data, self.model_.timeResolution_, incy, "blue", "red" )
         
   def settings( self, canvas ) :
     pass
@@ -159,7 +172,23 @@ class Renderer( object ) :
   def run( self, canvas ) :
     pass
     
-  
+  def addConfig( self, config ) :
+    # We have at least one config now
+    self.mainWidgets_["ConfigsBar"].text_ = ""
+    truncName = ( config.name_[:4] + '..') if len(config.name_) > 6 else config.name_
+    widgetLength = 31
+    startPos = 0 if len( self.configWidgets_ ) == 0 else self.configWidgets_[-1]["widget"].x_ + widgetLength + 1
+    cfgWidget = widgets.TextBox( truncName, "darkgreen", 2, 3, startPos, 18, widgetLength, 14, self.font_, 1 )
+
+    cfgWidget.name_ = config.name_
+    cfgWidget.fg_ = "green"
+    cfgWidget.bg_ = ImageColor.getrgb( "#1f0f0f" )
+    cfgWidget.activeFg_       = "white"
+    cfgWidget.activeBg_       = "black"
+
+    self.configWidgets_.append( { "widget" : cfgWidget, "config" : config } )
+
+    
   def buttonPress( self, button ) :
     pressType = self.hwctrl_.buttonMap_[ button.pin.number ] 
     print( "You pressed " + pressType )
@@ -199,6 +228,11 @@ class DataSet( object ) :
     self.name_  = name
     self.time_  = np.zeros( (0) )
     self.value_ = np.zeros( (0) )
+
+    # These are NOT the value min/max
+    # but the expected absolute max of the system
+    self.max_   = 1
+    self.min_   = 0
     
         
 class Configuration( object ) :
@@ -216,6 +250,8 @@ class Configuration( object ) :
       dataset = DataSet( data["name"] )
       dataset.time_  = np.array( data["time"] )
       dataset.value_ = np.array( data["value"] )
+      dataset.min_   = data["min"]
+      dataset.max_   = data["max"]
       self.datasets_[dataset.name_] = dataset
      
   
