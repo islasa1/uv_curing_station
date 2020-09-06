@@ -5,7 +5,7 @@ from luma.lcd.device import st7735 as luma_st7735
 from luma.core.interface.serial import spi as luma_spi
 import luma.core.render as luma_render
 import luma.core.sprite_system as luma_sprite
-from PIL import ImageFont
+from PIL import ImageFont, ImageColor
 
 import sys
 import time
@@ -52,7 +52,9 @@ class HardwareController( object ) :
                                serial_interface=self.spi_,
                                width=128,
                                height=128,
-                               bgr=True
+                               bgr=True,
+                               h_offset=1,
+                               v_offset=2
                               )
     #self.device_ = luma_device.get_device( config )
     self.buttons_ = {}
@@ -81,7 +83,7 @@ class Renderer( object ) :
   def __init__( self, ctrl, model ) :
     self.hwctrl_ = ctrl
     self.model_  = model
-    self.font_   = ImageFont.truetype( "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=6 )
+    self.font_   = ImageFont.truetype( "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=8 )
     
     self.hwctrl_.buttons_[ "up"    ].when_pressed = self.buttonPress
     self.hwctrl_.buttons_[ "down"  ].when_pressed = self.buttonPress
@@ -94,19 +96,24 @@ class Renderer( object ) :
     self.mainWidgets_[ "PreviewGraph" ] = widgets.Graph( x=38, y=44, width=84, height=84 )
     self.mainWidgets_[ "PreviewGraph" ].gridPxIncx_ = 8
     self.mainWidgets_[ "PreviewGraph" ].gridPxIncy_ = 8
-    self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", 2, 5,  0,  0, 25, 16, self.font_ )
-    self.mainWidgets_[ "Configs"      ] = widgets.TextBox( "Configs",  2, 5,  0, 16, 25, 16, self.font_ )
-    self.mainWidgets_[ "Manual"       ] = widgets.TextBox( "Manual",   2, 5,  0, 32, 50, 16, self.font_ )
-    
-    #self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", 2, 5 )
-    #self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", 2, 5 )
-    #self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", 2, 5 )
+    self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", "darkgreen", 1, 5,  0,  0, 43, 16, self.font_, 1 )
+    self.mainWidgets_[ "Configs"      ] = widgets.TextBox( "Edit",     "darkgreen", 4, 5, 44,  0, 27, 16, self.font_, 1 )
+    self.mainWidgets_[ "Manual"       ] = widgets.TextBox( "Devs",     "darkgreen", 4, 5, 72,  0, 27, 16, self.font_, 1 )
+    self.mainWidgets_[ "Help"         ] = widgets.TextBox( "Help",     "darkgreen", 4, 5, 100, 0, 27, 16, self.font_, 1 )
 
+    for name, widget in self.mainWidgets_.items() :
+      widget.name_ = name
+      widget.fg_ = "green"
+      widget.bg_ = ImageColor.getrgb( "#1f0f0f" )
+      widget.activeFg_       = "white"
+      widget.activeBg_       = "black"
+      
     self.mainWidgets_["PreviewGraph"].link( "left",  self.mainWidgets_["Settings"] )
     
     self.mainWidgets_["Settings"    ].link( "right", self.mainWidgets_["PreviewGraph"] )
     self.mainWidgets_["Configs"     ].link( "right", self.mainWidgets_["PreviewGraph"] )
     self.mainWidgets_["Manual"      ].link( "right", self.mainWidgets_["PreviewGraph"] )
+    self.mainWidgets_["Help"        ].link( "right", self.mainWidgets_["PreviewGraph"] )
 
     self.mainWidgets_["Settings"    ].link( "down",  self.mainWidgets_["Configs"] )
     self.mainWidgets_["Configs"     ].link( "up",    self.mainWidgets_["Settings"] )
@@ -114,6 +121,12 @@ class Renderer( object ) :
     self.mainWidgets_["Configs"     ].link( "down",  self.mainWidgets_["Manual"] )
     self.mainWidgets_["Manual"      ].link( "up",    self.mainWidgets_["Configs"] )
 
+    self.mainWidgets_["Manual"      ].link( "down",  self.mainWidgets_["Help"] )
+    self.mainWidgets_["Help"        ].link( "up",    self.mainWidgets_["Manual"] )
+
+    self.mainWidgets_["Help"        ].link( "down",  self.mainWidgets_["Settings"] )
+    self.mainWidgets_["Settings"    ].link( "up",    self.mainWidgets_["Help"] )
+    
     self.quit_ = False
 
     self.currentContext_ = "main"
@@ -127,6 +140,7 @@ class Renderer( object ) :
     self.contexts_[ "run"     ]    = [ self.run, None, None ]
 
   def main( self, canvas ) :
+    
     for name, widgets in self.mainWidgets_.items() :
       widgets.draw( canvas )
       
@@ -153,9 +167,10 @@ class Renderer( object ) :
     if self.contexts_[ self.currentContext_ ][1] is None :
       # Assign default
       self.contexts_[ self.currentContext_ ][1] = self.contexts_[ self.currentContext_ ][2]
+      self.contexts_[ self.currentContext_ ][1].select()
 
     #  We have an active widget
-    if self.contexts_[ self.currentContext_ ][1] is not None :
+    else: #self.contexts_[ self.currentContext_ ][1] is not None :
       if not self.contexts_[ self.currentContext_ ][1].hasFocus() :
         newCurrentWidget = self.contexts_[ self.currentContext_ ][1].getLink( pressType )
         if newCurrentWidget is not None :
@@ -174,6 +189,9 @@ class Renderer( object ) :
     with self.hwctrl_.frameReg_ :
       with luma_render.canvas( self.hwctrl_.device_, dither=True ) as canvas :
         self.contexts_[ self.currentContext_ ][0]( canvas )
+        if self.contexts_[ self.currentContext_ ][1] is not None :
+          print( "Active Widget is : " + self.contexts_[ self.currentContext_ ][1].name_ ) 
+          
         
 
 class DataSet( object ) :
