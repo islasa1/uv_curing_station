@@ -18,6 +18,7 @@ class Widget( object ) :
     self.onInput_  = None
     self.hasFocus_ = False
     self.hidden_   = False
+    self.name_     = "Widget" 
 
   def setX( self, x ) :
     self.x_ = x
@@ -104,19 +105,19 @@ class Widget( object ) :
 
 class TextBox( Widget ):
   """A Scolling graph"""
-  def __init__( self, text=None, textPosX=0, textPosY=0, x=0, y=0, width=1, height=1, font=None ) :
+  def __init__( self, text=None, color="green",  textPosX=0, textPosY=0, x=0, y=0, width=1, height=1, font=None, borderpx=2, aligned="left" ) :
     super(TextBox, self).__init__( x, y, width, height )
-    self.borderpx_  = 2
+    self.borderpx_  = borderpx
     self.text_      = text or "Hello World!"
-    self.textColor_ = "green"
+    self.textColor_ = color
     self.font_      = font
     self.textPosX_  = textPosX
     self.textPosY_  = textPosY
-    self.align_     = "left"
+    self.align_     = aligned
 
   def render( self ) :
-    self.canvas_.rectangle( [ self.x_, self.y_, self.x_ + self.width_, self.y_ + self.height_ ], fill=None, outline=self.fg_, width=self.borderpx_  )
-    self.canvas_.text( [ self.textPosX_ + self.x_, self.textPosY_ + self.y_ ], self.text_, font=None, fill=self.textColor_, align=self.align_ )
+    self.canvas_.rectangle( [ self.x_, self.y_, self.x_ + self.width_, self.y_ + self.height_ ], fill=self.bg_, outline=self.fg_, width=self.borderpx_  )
+    self.canvas_.text( [ self.textPosX_ + self.x_, self.textPosY_ + self.y_ ], self.text_, font=self.font_, fill=self.textColor_, align=self.align_ )
 
 class Graph(Widget):
   """A Scolling graph"""
