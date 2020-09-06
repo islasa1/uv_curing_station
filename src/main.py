@@ -5,6 +5,7 @@ from luma.lcd.device import st7735 as luma_st7735
 from luma.core.interface.serial import spi as luma_spi
 import luma.core.render as luma_render
 import luma.core.sprite_system as luma_sprite
+from PIL import ImageFont
 
 import sys
 import time
@@ -80,29 +81,61 @@ class Renderer( object ) :
   def __init__( self, ctrl, model ) :
     self.hwctrl_ = ctrl
     self.model_  = model
+    self.font_   = ImageFont.truetype( "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=6 )
+    
     self.hwctrl_.buttons_[ "up"    ].when_pressed = self.buttonPress
     self.hwctrl_.buttons_[ "down"  ].when_pressed = self.buttonPress
     self.hwctrl_.buttons_[ "left"  ].when_pressed = self.buttonPress
     self.hwctrl_.buttons_[ "right" ].when_pressed = self.buttonPress
     self.hwctrl_.buttons_[ "key3"  ].when_pressed = self.buttonPress
 
-    self.graph_    = widgets.Graph( x=38, y=44, width=84, height=84 )
-    self.graph_.gridPxIncx_ = 8
-    self.graph_.gridPxIncy_ = 8
+    # Widgets
+    self.mainWidgets_ = {}
+    self.mainWidgets_[ "PreviewGraph" ] = widgets.Graph( x=38, y=44, width=84, height=84 )
+    self.mainWidgets_[ "PreviewGraph" ].gridPxIncx_ = 8
+    self.mainWidgets_[ "PreviewGraph" ].gridPxIncy_ = 8
+    self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", 2, 5,  0,  0, 25, 16, self.font_ )
+    self.mainWidgets_[ "Configs"      ] = widgets.TextBox( "Configs",  2, 5,  0, 16, 25, 16, self.font_ )
+    self.mainWidgets_[ "Manual"       ] = widgets.TextBox( "Manual",   2, 5,  0, 32, 50, 16, self.font_ )
+    
+    #self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", 2, 5 )
+    #self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", 2, 5 )
+    #self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", 2, 5 )
+
+    self.mainWidgets_["PreviewGraph"].link( "left",  self.mainWidgets_["Settings"] )
+    
+    self.mainWidgets_["Settings"    ].link( "right", self.mainWidgets_["PreviewGraph"] )
+    self.mainWidgets_["Configs"     ].link( "right", self.mainWidgets_["PreviewGraph"] )
+    self.mainWidgets_["Manual"      ].link( "right", self.mainWidgets_["PreviewGraph"] )
+
+    self.mainWidgets_["Settings"    ].link( "down",  self.mainWidgets_["Configs"] )
+    self.mainWidgets_["Configs"     ].link( "up",    self.mainWidgets_["Settings"] )
+
+    self.mainWidgets_["Configs"     ].link( "down",  self.mainWidgets_["Manual"] )
+    self.mainWidgets_["Manual"      ].link( "up",    self.mainWidgets_["Configs"] )
 
     self.quit_ = False
 
-    self.currentContext_ = "run"
+    self.currentContext_ = "main"
     
     self.contexts_ = {}
-    self.contexts_[ "main" ]       = self.main
-    self.contexts_[ "settings" ]   = self.settings
-    self.contexts_[ "configs" ]    = self.configs
-    self.contexts_[ "edit"    ]    = self.edit
-    self.contexts_[ "run"     ]    = self.run
+    # Contexts as : func(), current widget, default widget
+    self.contexts_[ "main" ]       = [ self.main, None, self.mainWidgets_["Settings"] ]
+    self.contexts_[ "settings" ]   = [ self.settings, None, None ]
+    self.contexts_[ "configs" ]    = [ self.configs, None, None ]
+    self.contexts_[ "edit"    ]    = [ self.edit, None, None ]
+    self.contexts_[ "run"     ]    = [ self.run, None, None ]
 
   def main( self, canvas ) :
-    pass
+    for name, widgets in self.mainWidgets_.items() :
+      widgets.draw( canvas )
+      
+    if len( self.model_.configs_ ) > 0 :
+      if self.model_.configs_[0].datasets_["zaxis"] :
+        data = np.array( ( self.model_.configs_[0].datasets_["zaxis"].time_,
+                           self.model_.configs_[0].datasets_["zaxis"].value_ ) )
+        self.mainWidgets_[ "PreviewGraph" ].drawData( data, 10, 10, "blue", "red" )
+        
   def settings( self, canvas ) :
     pass
   def configs( self, canvas ) :
@@ -110,28 +143,26 @@ class Renderer( object ) :
   def edit( self, canvas ) :
     pass
   def run( self, canvas ) :
-    self.graph_.draw( canvas )
-    if len( self.model_.configs_ ) > 0 :
-      if self.model_.configs_[0].datasets_["zaxis"] :
-        data = np.array( ( self.model_.configs_[0].datasets_["zaxis"].time_,
-                           self.model_.configs_[0].datasets_["zaxis"].value_ ) )
-        self.graph_.drawData( data, 10, 10, "blue", "red" )  
+    pass
     
   
   def buttonPress( self, button ) :
     pressType = self.hwctrl_.buttonMap_[ button.pin.number ] 
     print( "You pressed " + pressType )
 
-    if pressType == "up" :
-      self.graph_.moveUp()
-    elif pressType == "down" :
-      self.graph_.moveDown()
-    elif pressType == "left" :
-      self.graph_.moveLeft()    
-    elif pressType == "right" :
-      self.graph_.moveRight()
-    elif pressType == "key3" :
-      self.quit_ = True
+    if self.contexts_[ self.currentContext_ ][1] is None :
+      # Assign default
+      self.contexts_[ self.currentContext_ ][1] = self.contexts_[ self.currentContext_ ][2]
+
+    #  We have an active widget
+    if self.contexts_[ self.currentContext_ ][1] is not None :
+      if not self.contexts_[ self.currentContext_ ][1].hasFocus() :
+        newCurrentWidget = self.contexts_[ self.currentContext_ ][1].getLink( pressType )
+        if newCurrentWidget is not None :
+          self.contexts_[ self.currentContext_ ][1] = newCurrentWidget
+      else :
+        # Widget has focus from main control method, go to its handler
+        self.contexts_[ self.currentContext_ ][1].onInput( pressType )
 
     self.render()
 
@@ -139,11 +170,10 @@ class Renderer( object ) :
     return self.quit_
       
   def render( self ) :
-    data = np.array( ( range( 0, 101, 20 ), range( 0, 101, 20 ) ) )
 
     with self.hwctrl_.frameReg_ :
       with luma_render.canvas( self.hwctrl_.device_, dither=True ) as canvas :
-        self.contexts_[ self.currentContext_ ]( canvas )
+        self.contexts_[ self.currentContext_ ][0]( canvas )
         
 
 class DataSet( object ) :

@@ -9,9 +9,15 @@ class Widget( object ) :
     self.height_ = height
     self.fg_     = "white"
     self.bg_     = "black"
-    self.activefg_ = "black"
+    self.activeFg_ = "black"
     self.activeBg_ = "white"
+    self.selected_ = False
+    self.swapOnSelect_ = True
     self.canvas_ = None
+    self.links_  = {}
+    self.onInput_  = None
+    self.hasFocus_ = False
+    self.hidden_   = False
 
   def setX( self, x ) :
     self.x_ = x
@@ -45,12 +51,52 @@ class Widget( object ) :
   def setBackground( self, color ) :
     self.bg_ = color
 
-  def flush( self, img ) :
-    self.canvas_.merge( self.draw() )
+  def hide( self ) :
+    self.hidden_ = True
+  def unhide( self ) :
+    self.hidden_ = False
+    
+  def hasFocus( self ) :
+    return self.hasFocus_
+
+  def onInput( self, inputType="press" ) :
+    if self.onInput_ is not None :
+      self.onInput_( inputType )
+      
+  def swapActiveColors( self ) :
+    if self.swapOnSelect_ :
+      tmp = self.fg_
+      self.fg_ = self.activeFg_
+      self.activeFg_ = tmp
+      tmp = self.bg_
+      self.bg_ = self.activeBg_
+      self.activeBg_ = tmp
+      
+      
+  def select( self ) :
+    self.selected_ = True
+    # swap colors
+    self.swapActiveColors()
+
+  def deselect( self ) :
+    self.selected_ = False
+    self.swapActiveColors()
+    
+  def link( self, direction, widget ) :
+    self.links_[direction] = widget
+
+  def getLink( self, direction ) :
+    if direction in self.links_ :
+      self.links_[direction].select()
+      self.deselect()
+      return self.links_[direction]
+    else :
+      return None
 
   def draw( self, canvas ) :
-    self.canvas_ = canvas
-    self.render()
+    if not self.hidden_ :
+      self.canvas_ = canvas
+      self.render()
 
   def render( self ) :
     pass
@@ -58,14 +104,14 @@ class Widget( object ) :
 
 class TextBox( Widget ):
   """A Scolling graph"""
-  def __init__( self, x=0, y=0, width=1, height=1 ):
-    super(Graph, self).__init__( x, y, width, height )
+  def __init__( self, text=None, textPosX=0, textPosY=0, x=0, y=0, width=1, height=1, font=None ) :
+    super(TextBox, self).__init__( x, y, width, height )
     self.borderpx_  = 2
-    self.text_      = "Hello World!"
-    self.textColor_    = "green"
-    self.font_      = None
-    self.textPosX_  = 0
-    self.textPosY_  = 0
+    self.text_      = text or "Hello World!"
+    self.textColor_ = "green"
+    self.font_      = font
+    self.textPosX_  = textPosX
+    self.textPosY_  = textPosY
     self.align_     = "left"
 
   def render( self ) :
@@ -134,6 +180,8 @@ class Graph(Widget):
 
   
   def drawData( self, data, incx, incy, color, ptColor, canvas=None ) :
+    if self.hidden_ : return
+    
     if canvas is not None :
       # overwrite current canvas
       self.canvas_ = canvas
@@ -148,7 +196,7 @@ class Graph(Widget):
     self.dataMin_     = self.drawPosY_ * dataPerPixY
     self.dataMax_     = dataPerPixY * ( self.height_ - 2 * self.borderpx_ ) + self.dataMin_
 
-    print( "Plotting from X[ " + str( self.dataStart_ ) + ", " + str( self.dataEnd_ ) + " ] between Y[ " + str( self.dataMin_ ) + ", " + str( self.dataMax_ ) + " ]" )
+    # print( "Plotting from X[ " + str( self.dataStart_ ) + ", " + str( self.dataEnd_ ) + " ] between Y[ " + str( self.dataMin_ ) + ", " + str( self.dataMax_ ) + " ]" )
 
     # Find bounding data
     indicesToDraw = ( data[0] >= self.dataStart_ ) & ( data[0] <= self.dataEnd_ )
@@ -194,9 +242,7 @@ class Graph(Widget):
 
     # Now rest of lines
     pts = list( zip( self.getXDataPx( dataToDrawX ), self.getYDataPx( dataToDrawY ) ) )
-    print( pts )
+    # print( pts )
     self.canvas_.line( pts, fill=color, width=1 )
     self.canvas_.point( pts, fill=ptColor )
-
-
 
