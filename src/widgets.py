@@ -167,7 +167,7 @@ class Graph(Widget):
       if interpLeftIdx > -1 :
         interpLeft  = True
     if self.dataEnd_   != dataToDrawX[-1] : 
-      interpRightIdx = np.where( indicesToDraw == True )[0][0] + 1
+      interpRightIdx = np.where( indicesToDraw == True )[0][-1] + 1
       if interpRightIdx < indicesToDraw.shape[0] :
         interpRight  = True
 
