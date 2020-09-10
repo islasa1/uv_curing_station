@@ -7,6 +7,10 @@ class Widget( object ) :
     self.y_ = y
     self.width_ = width
     self.height_ = height
+
+    self.centerX_ = self.x_ + self.width_ / 2
+    self.centerY_ = self.y_ + self.height_ / 2
+    
     self.fg_     = "white"
     self.bg_     = "black"
     self.activeFg_ = "black"
@@ -60,6 +64,11 @@ class Widget( object ) :
   def hasFocus( self ) :
     return self.hasFocus_
 
+  def focus( self ) :
+    self.hasFocus_ = True
+  def defocus( self ) :
+    self.hasFocus_ = False
+
   def onInput( self, inputType="press" ) :
     if self.onInput_ is not None :
       self.onInput_( inputType )
@@ -105,7 +114,7 @@ class Widget( object ) :
 
 class TextBox( Widget ):
   """A Scolling graph"""
-  def __init__( self, text=None, color="green",  textPosX=0, textPosY=0, x=0, y=0, width=1, height=1, font=None, borderpx=2, aligned="left" ) :
+  def __init__( self, text=None, color="green",  textPosX=0, textPosY=0, x=0, y=0, width=1, height=1, font=None, borderpx=2, aligned="left", spacing=4 ) :
     super(TextBox, self).__init__( x, y, width, height )
     self.borderpx_  = borderpx
     self.text_      = text or "Hello World!"
@@ -114,10 +123,11 @@ class TextBox( Widget ):
     self.textPosX_  = textPosX
     self.textPosY_  = textPosY
     self.align_     = aligned
+    self.spacing_   = spacing
 
   def render( self ) :
     self.canvas_.rectangle( [ self.x_, self.y_, self.x_ + self.width_, self.y_ + self.height_ ], fill=self.bg_, outline=self.fg_, width=self.borderpx_  )
-    self.canvas_.text( [ self.textPosX_ + self.x_, self.textPosY_ + self.y_ ], self.text_, font=self.font_, fill=self.textColor_, align=self.align_ )
+    self.canvas_.text( [ self.textPosX_ + self.x_, self.textPosY_ + self.y_ ], self.text_, font=self.font_, fill=self.textColor_, align=self.align_, spacing=self.spacing_ )
 
 class Graph(Widget):
   """A Scolling graph"""
@@ -247,3 +257,60 @@ class Graph(Widget):
     self.canvas_.line( pts, fill=color, width=1 )
     self.canvas_.point( pts, fill=ptColor )
 
+class WidgetManager( Widget ) :
+  def __init__( self ) :
+    super(WidgetManager, self).__init__( )
+    self.widgets_ = {}
+    self.currentWidget_ = None
+    self.defaultWidget_ = None
+    self.adjustCentroid_ = True
+
+  def onInput( self, direction ) :
+    if self.currentWidget_ is None :
+      self.currentWidget_ = self.defaultWidget_
+      self.currentWidget_.select()
+    else :
+            
+      if not self.currentWidget_.hasFocus() :
+        if direction == "press" : self.currentWidget_.focus()
+        else :
+          # First filter by all widgets to the direction of what we want
+          # then by how close they
+          widgetSelect = None
+          pointA       = np.array( ( self.currentWidget_.centerX_, self.currentWidget_.centerY_ ) )
+          lastDistance = -1
+        
+          for name, widget in self.widgets_.items() :          
+            if ( ( direction == "up" and widget.centerY_ < self.currentWidget_.centerY_    ) or
+                 ( direction == "down" and widget.centerY_ > self.currentWidget_.centerY_  ) or 
+                 ( direction == "left" and widget.centerX_ < self.currentWidget_.centerX_  ) or 
+                 ( direction == "right" and widget.centerX_ > self.currentWidget_.centerX_ ) ) :
+              pointB   = np.array( ( widget.centerX_, widget.centerY_ ) )
+              distance = np.linalg.norm( pointA - pointB )
+            
+              if widgetSelect is None or distance < lastDistance :
+                widgetSelect = widget
+                lastDistance = distance
+              
+          if widgetSelect is not None :
+            self.currentWidget_.deselect()
+            widgetSelect_.select()
+            self.currentWidget_ = widgetSelect_
+          
+      else :
+        # Widget has focus from main control method, go to its handler
+        self.currentWidget_.onInput( pressType )
+
+  def addWidget( self, name, widget ) :
+    if self.defaultWidget_ is None : self.defaultWidget_ = widget
+    self.widgets_[ name ] = widget
+    
+    # Revalutate center
+    if self.adjustCentroid_ :
+      
+      x = [ v.centerX_ for k, v in self.widgets_.items() ]
+      y = [ v.centerY_ for k, v in self.widgets_.items() ]
+
+      self.centerX_ = np.sum( x ) / len( x )
+      self.centerY_ = np.sum( y ) / len( y )
+  
