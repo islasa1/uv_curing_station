@@ -16,15 +16,21 @@ import atexit
 import json
 import glob
 
-KEY_UP_PIN     = 6
-KEY_DOWN_PIN   = 19
-KEY_LEFT_PIN   = 5
-KEY_RIGHT_PIN  = 26
-KEY_PRESS_PIN  = 13
-KEY1_PIN       = 21
-KEY2_PIN       = 20
-KEY3_PIN       = 16
+# Shield
+#KEY_UP_PIN     = 6
+#KEY_DOWN_PIN   = 19
+#KEY_LEFT_PIN   = 5
+#KEY_RIGHT_PIN  = 26
+#KEY_PRESS_PIN  = 13
+#KEY1_PIN       = 21
+#KEY2_PIN       = 20
+#KEY3_PIN       = 16
 
+KEY_UP_PIN     = 5
+KEY_DOWN_PIN   = 26
+KEY_LEFT_PIN   = 6
+KEY_RIGHT_PIN  = 19
+KEY_PRESS_PIN  = 13
 
 class Capture:
   def __init__(self):
@@ -42,40 +48,32 @@ class HardwareController( object ) :
                             bus_speed_hz=16000000,
                             cs_high=False,
                             transfer_size=4096,
-                            gpio_DC=25,
-                            gpio_RST=27
+                            gpio_DC=23, # 25 
+                            gpio_RST=24 # 27
                            )
       
     self.device_ = luma_st7735(
                                #gpio_LIGHT=24,  #this is failing, idk why
                                #pwm_frequency=200,
                                serial_interface=self.spi_,
-                               width=128,
+                               width=160,
                                height=128,
-                               bgr=True,
-                               h_offset=1,
-                               v_offset=2
+                               bgr=False,
+                               h_offset=0,
+                               v_offset=0,
+                               rotate=2
                               )
     #self.device_ = luma_device.get_device( config )
     self.buttons_ = {}
-    self.buttons_[ "up"    ] = gz.Button(  6, bounce_time=0.05, hold_time=1, hold_repeat=True )
-    self.buttons_[ "down"  ] = gz.Button( 19, bounce_time=0.05, hold_time=1, hold_repeat=True )
-    self.buttons_[ "left"  ] = gz.Button(  5, bounce_time=0.05, hold_time=1, hold_repeat=True )
-    self.buttons_[ "right" ] = gz.Button( 26, bounce_time=0.05, hold_time=1, hold_repeat=True )
-    self.buttons_[ "press" ] = gz.Button( 13, bounce_time=0.05, hold_time=1, hold_repeat=True )
-    self.buttons_[ "key1"  ] = gz.Button( 21, bounce_time=0.05, hold_time=1, hold_repeat=True )
-    self.buttons_[ "key2"  ] = gz.Button( 20, bounce_time=0.05, hold_time=1, hold_repeat=True )
-    self.buttons_[ "key3"  ] = gz.Button( 16, bounce_time=0.05, hold_time=1, hold_repeat=True )
-    
+    self.buttons_[ "up"    ] = gz.Button( KEY_UP_PIN,    bounce_time=0.05, hold_time=1, hold_repeat=True )
+    self.buttons_[ "down"  ] = gz.Button( KEY_DOWN_PIN,  bounce_time=0.05, hold_time=1, hold_repeat=True )
+    self.buttons_[ "left"  ] = gz.Button( KEY_LEFT_PIN,  bounce_time=0.05, hold_time=1, hold_repeat=True )
+    self.buttons_[ "right" ] = gz.Button( KEY_RIGHT_PIN, bounce_time=0.05, hold_time=1, hold_repeat=True )
+    self.buttons_[ "press" ] = gz.Button( KEY_PRESS_PIN, bounce_time=0.05, hold_time=1, hold_repeat=True )
+
     self.buttonMap_ = {}
-    self.buttonMap_[  6 ] = "up"
-    self.buttonMap_[ 19 ] = "down"
-    self.buttonMap_[  5 ] = "left"
-    self.buttonMap_[ 26 ] = "right"
-    self.buttonMap_[ 13 ] = "press"
-    self.buttonMap_[ 21 ] = "key1"
-    self.buttonMap_[ 20 ] = "key2"
-    self.buttonMap_[ 16 ] = "key3"
+    for key, value in self.buttons_.items() :
+      self.buttonMap_[ value.pin.number ] = key
 
     self.frameReg_ = luma_sprite.framerate_regulator( fps=30 )
 
@@ -84,27 +82,27 @@ class Renderer( object ) :
     self.hwctrl_ = ctrl
     self.model_  = model
     self.font_   = ImageFont.truetype( "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=8 )
-    
-    self.hwctrl_.buttons_[ "up"    ].when_pressed = self.buttonPress
-    self.hwctrl_.buttons_[ "down"  ].when_pressed = self.buttonPress
-    self.hwctrl_.buttons_[ "left"  ].when_pressed = self.buttonPress
-    self.hwctrl_.buttons_[ "right" ].when_pressed = self.buttonPress
-    self.hwctrl_.buttons_[ "key3"  ].when_pressed = self.buttonPress
+    self.smallfont_   = ImageFont.truetype( "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=7 )
+
+    for key, value in self.hwctrl_.buttons_.items() :
+      value.when_pressed = self.buttonPress
 
     self.valueSubdivisions_ = 10
     
     # Widgets
-    self.mainWidgets_ = {}
-    self.mainWidgets_[ "PreviewGraph" ] = widgets.Graph( x=43, y=64, width=84, height=64 )
-    self.mainWidgets_[ "PreviewGraph" ].gridPxIncx_ = 8
-    self.mainWidgets_[ "PreviewGraph" ].gridPxIncy_ = 6
+    self.mainWidgets_ = WidgetManager( )
+    self.mainWidgets_.addWidget( "PreviewGraph", widgets.Graph( x=44, y=44, width=84, height=84 ) )
+    self.mainWidgets_.[ "PreviewGraph" ].gridPxIncx_ = 8
+    self.mainWidgets_[ "PreviewGraph" ].gridPxIncy_ = 8
     self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", "darkgreen", 1, 5,  0,  0, 43, 16, self.font_, 1 )
-    self.mainWidgets_[ "Configs"      ] = widgets.TextBox( "Edit",     "darkgreen", 4, 5, 44,  0, 27, 16, self.font_, 1 )
-    self.mainWidgets_[ "Manual"       ] = widgets.TextBox( "Devs",     "darkgreen", 4, 5, 72,  0, 27, 16, self.font_, 1 )
-    self.mainWidgets_[ "Help"         ] = widgets.TextBox( "Help",     "darkgreen", 4, 5, 100, 0, 27, 16, self.font_, 1 )
+    self.mainWidgets_[ "Hardware"     ] = widgets.TextBox( "Hardware", "darkgreen", 1, 5, 44,  0, 43, 16, self.font_, 1 )
+    self.mainWidgets_[ "Help"         ] = widgets.TextBox( "Help",     "darkgreen", 4, 5, 89,  0, 28, 16, self.font_, 1 )
 
-    self.mainWidgets_[ "ConfigsBar"   ] = widgets.TextBox( "No Configurations Loaded", "darkgreen", 4, 5, 0, 17, 127, 16, self.font_, 1 )
-    self.mainWidgets_[ "Resolution"   ] = widgets.TextBox( "Res: ??? sec", "darkgreen", 1, 5, 75, 48, 52, 16, self.font_, 1 )
+    self.mainWidgets_[ "ConfigsBar"   ] = widgets.TextBox( "No\nConfigs\nLoaded", "darkgreen", 2, 5, 0, 17, 43, 110, self.font_, 1 )
+
+    self.mainWidgets_[ "Resolution"       ] = widgets.TextBox( "Timescale\n" + str( self.model_.timeResolution_ ) + " sec", "darkgreen", 2, 2, 44, 17, 48, 20, self.font_, 1, spacing=2 )
+    self.mainWidgets_[ "ResolutionAdjust" ] = widgets.TextBox( "Adjust\nTime", "darkgreen", 2, 2, 93, 17, 35, 20, self.font_, 1, spacing=2 )
+    self.mainWidgets_[ "ResolutionTime"   ] = widgets.TextBox( "For detailed info ->", "blue", 2, -1, 44, 38, 84, 6, self.smallfont_, 0 )
     
     self.configWidgets_ = []
     for cfg in self.model_.configs_ :
@@ -175,10 +173,19 @@ class Renderer( object ) :
   def addConfig( self, config ) :
     # We have at least one config now
     self.mainWidgets_["ConfigsBar"].text_ = ""
-    truncName = ( config.name_[:4] + '..') if len(config.name_) > 6 else config.name_
-    widgetLength = 31
-    startPos = 0 if len( self.configWidgets_ ) == 0 else self.configWidgets_[-1]["widget"].x_ + widgetLength + 1
-    cfgWidget = widgets.TextBox( truncName, "darkgreen", 2, 3, startPos, 18, widgetLength, 14, self.font_, 1 )
+    truncName = ( config.name_[:6] + '..') if len(config.name_) > 8 else config.name_
+    widgetHeight = 16
+    startPos = self.mainWidgets_[ "ConfigsBar" ].y_ + 1 if len( self.configWidgets_ ) == 0 else self.configWidgets_[-1]["widget"].y_ + widgetHeight + 1
+    cfgWidget = widgets.TextBox(
+                                truncName,
+                                "darkgreen",
+                                2, 3,
+                                self.mainWidgets_[ "ConfigsBar" ].x_ + 1,
+                                startPos,
+                                self.mainWidgets_[ "ConfigsBar" ].width_ - 2,
+                                widgetHeight,
+                                self.font_, 1
+                                )
 
     cfgWidget.name_ = config.name_
     cfgWidget.fg_ = "green"
