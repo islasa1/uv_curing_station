@@ -92,48 +92,32 @@ class Renderer( object ) :
     # Widgets
     self.mainWidgets_ = WidgetManager( )
     self.mainWidgets_.addWidget( "PreviewGraph", widgets.Graph( x=44, y=44, width=84, height=84 ) )
-    self.mainWidgets_.[ "PreviewGraph" ].gridPxIncx_ = 8
-    self.mainWidgets_[ "PreviewGraph" ].gridPxIncy_ = 8
-    self.mainWidgets_[ "Settings"     ] = widgets.TextBox( "Settings", "darkgreen", 1, 5,  0,  0, 43, 16, self.font_, 1 )
-    self.mainWidgets_[ "Hardware"     ] = widgets.TextBox( "Hardware", "darkgreen", 1, 5, 44,  0, 43, 16, self.font_, 1 )
-    self.mainWidgets_[ "Help"         ] = widgets.TextBox( "Help",     "darkgreen", 4, 5, 89,  0, 28, 16, self.font_, 1 )
+    self.mainWidgets_.widgets_[ "PreviewGraph" ].gridPxIncx_ = 8
+    self.mainWidgets_.widgets_[ "PreviewGraph" ].gridPxIncy_ = 8
 
-    self.mainWidgets_[ "ConfigsBar"   ] = widgets.TextBox( "No\nConfigs\nLoaded", "darkgreen", 2, 5, 0, 17, 43, 110, self.font_, 1 )
-
-    self.mainWidgets_[ "Resolution"       ] = widgets.TextBox( "Timescale\n" + str( self.model_.timeResolution_ ) + " sec", "darkgreen", 2, 2, 44, 17, 48, 20, self.font_, 1, spacing=2 )
-    self.mainWidgets_[ "ResolutionAdjust" ] = widgets.TextBox( "Adjust\nTime", "darkgreen", 2, 2, 93, 17, 35, 20, self.font_, 1, spacing=2 )
-    self.mainWidgets_[ "ResolutionTime"   ] = widgets.TextBox( "For detailed info ->", "blue", 2, -1, 44, 38, 84, 6, self.smallfont_, 0 )
+    self.mainWidgets_.addWidget( "Settings",         widgets.TextBox( "Settings", "darkgreen", 1, 5,  0,  0, 43, 16, self.font_, 1 ) )
+    self.mainWidgets_.addWidget( "Hardware",         widgets.TextBox( "Hardware", "darkgreen", 1, 5, 44,  0, 43, 16, self.font_, 1 ) )
+    self.mainWidgets_.addWidget( "Help",             widgets.TextBox( "Help",     "darkgreen", 4, 5, 89,  0, 28, 16, self.font_, 1 ) )
+    self.mainWidgets_.addWidget( "ConfigsBar",       widgets.TextBox( "No\nConfigs\nLoaded", "darkgreen", 2, 5, 0, 17, 43, 110, self.font_, 1 ) )
+    self.mainWidgets_.addWidget( "Resolution",       widgets.TextBox( "Timescale\n" + str( self.model_.timeResolution_ ) + " sec", "darkgreen", 2, 2, 44, 17, 48, 20, self.font_, 1, spacing=2 ) )
+    self.mainWidgets_.addWidget( "ResolutionAdjust", widgets.TextBox( "Adjust\nTime", "darkgreen", 2, 2, 93, 17, 35, 20, self.font_, 1, spacing=2 ) )
+    self.mainWidgets_.addWidget( "ResolutionTime",   widgets.TextBox( "For detailed info ->", "blue", 2, -1, 44, 38, 84, 6, self.smallfont_, 0 ) )
     
-    self.configWidgets_ = []
+    self.configWidgets_ = WidgetManager()
+    self.configWidgets_.adjustCentroid_ = False
+    self.configWidgets_.centerX_ = mainWidgets_.widgets_[ "ConfigsBar" ].centerX_
+    self.configWidgets_.centerY_ = mainWidgets_.widgets_[ "ConfigsBar" ].centerY_
+
     for cfg in self.model_.configs_ :
       self.addConfig( cfg )
     
-    for name, widget in self.mainWidgets_.items() :
+    for name, widget in self.mainWidgets_.widgets_.items() :
       widget.name_ = name
       widget.fg_ = "green"
       widget.bg_ = ImageColor.getrgb( "#1f0f0f" )
       widget.activeFg_       = "white"
       widget.activeBg_       = "black"
       
-    self.mainWidgets_["PreviewGraph"].link( "left",  self.mainWidgets_["Settings"] )
-    
-    self.mainWidgets_["Settings"    ].link( "right", self.mainWidgets_["PreviewGraph"] )
-    self.mainWidgets_["Configs"     ].link( "right", self.mainWidgets_["PreviewGraph"] )
-    self.mainWidgets_["Manual"      ].link( "right", self.mainWidgets_["PreviewGraph"] )
-    self.mainWidgets_["Help"        ].link( "right", self.mainWidgets_["PreviewGraph"] )
-
-    self.mainWidgets_["Settings"    ].link( "down",  self.mainWidgets_["Configs"] )
-    self.mainWidgets_["Configs"     ].link( "up",    self.mainWidgets_["Settings"] )
-
-    self.mainWidgets_["Configs"     ].link( "down",  self.mainWidgets_["Manual"] )
-    self.mainWidgets_["Manual"      ].link( "up",    self.mainWidgets_["Configs"] )
-
-    self.mainWidgets_["Manual"      ].link( "down",  self.mainWidgets_["Help"] )
-    self.mainWidgets_["Help"        ].link( "up",    self.mainWidgets_["Manual"] )
-
-    self.mainWidgets_["Help"        ].link( "down",  self.mainWidgets_["Settings"] )
-    self.mainWidgets_["Settings"    ].link( "up",    self.mainWidgets_["Help"] )
-    
     self.quit_ = False
 
     self.currentContext_ = "main"
@@ -172,10 +156,12 @@ class Renderer( object ) :
     
   def addConfig( self, config ) :
     # We have at least one config now
-    self.mainWidgets_["ConfigsBar"].text_ = ""
+    self.mainWidgets_.widgets_[ "ConfigsBar" ].text_ = ""
     truncName = ( config.name_[:6] + '..') if len(config.name_) > 8 else config.name_
     widgetHeight = 16
-    startPos = self.mainWidgets_[ "ConfigsBar" ].y_ + 1 if len( self.configWidgets_ ) == 0 else self.configWidgets_[-1]["widget"].y_ + widgetHeight + 1
+    startPos = ( self.mainWidgets_.widgets_[ "ConfigsBar" ].y_ + 1 
+                  if len( self.configWidgets_.widgetsList_ ) == 0 
+                  else self.configWidgets_.widgetsList_[-1].y_ + widgetHeight + 1 )
     cfgWidget = widgets.TextBox(
                                 truncName,
                                 "darkgreen",
@@ -193,27 +179,29 @@ class Renderer( object ) :
     cfgWidget.activeFg_       = "white"
     cfgWidget.activeBg_       = "black"
 
-    self.configWidgets_.append( { "widget" : cfgWidget, "config" : config } )
-
+    self.configWidgets_.addWidget( cfgWidget )
     
   def buttonPress( self, button ) :
     pressType = self.hwctrl_.buttonMap_[ button.pin.number ] 
     print( "You pressed " + pressType )
 
-    if self.contexts_[ self.currentContext_ ][1] is None :
-      # Assign default
-      self.contexts_[ self.currentContext_ ][1] = self.contexts_[ self.currentContext_ ][2]
-      self.contexts_[ self.currentContext_ ][1].select()
+    # Get the current context widget manager
+    self.contexts_[ self.currentContext_ ][1].onInput( pressType )
+    
+    # if self.contexts_[ self.currentContext_ ][1] is None :
+    #   # Assign default
+    #   self.contexts_[ self.currentContext_ ][1] = self.contexts_[ self.currentContext_ ][2]
+    #   self.contexts_[ self.currentContext_ ][1].select()
 
-    #  We have an active widget
-    else: #self.contexts_[ self.currentContext_ ][1] is not None :
-      if not self.contexts_[ self.currentContext_ ][1].hasFocus() :
-        newCurrentWidget = self.contexts_[ self.currentContext_ ][1].getLink( pressType )
-        if newCurrentWidget is not None :
-          self.contexts_[ self.currentContext_ ][1] = newCurrentWidget
-      else :
-        # Widget has focus from main control method, go to its handler
-        self.contexts_[ self.currentContext_ ][1].onInput( pressType )
+    # #  We have an active widget
+    # else: #self.contexts_[ self.currentContext_ ][1] is not None :
+    #   if not self.contexts_[ self.currentContext_ ][1].hasFocus() :
+    #     newCurrentWidget = self.contexts_[ self.currentContext_ ][1].getLink( pressType )
+    #     if newCurrentWidget is not None :
+    #       self.contexts_[ self.currentContext_ ][1] = newCurrentWidget
+    #   else :
+    #     # Widget has focus from main control method, go to its handler
+    #     self.contexts_[ self.currentContext_ ][1].onInput( pressType )
 
     self.render()
 
