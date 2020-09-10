@@ -108,6 +108,8 @@ class Renderer( object ) :
     self.configWidgets_.centerX_ = mainWidgets_.widgets_[ "ConfigsBar" ].centerX_
     self.configWidgets_.centerY_ = mainWidgets_.widgets_[ "ConfigsBar" ].centerY_
 
+    self.mainWidgets_.addWidget( self.configWidgets_ )
+
     for cfg in self.model_.configs_ :
       self.addConfig( cfg )
     
@@ -123,12 +125,7 @@ class Renderer( object ) :
     self.currentContext_ = "main"
     
     self.contexts_ = {}
-    # Contexts as : func(), current widget, default widget
-    self.contexts_[ "main" ]       = [ self.main, None, self.mainWidgets_["Settings"] ]
-    self.contexts_[ "settings" ]   = [ self.settings, None, None ]
-    self.contexts_[ "configs" ]    = [ self.configs, None, None ]
-    self.contexts_[ "edit"    ]    = [ self.edit, None, None ]
-    self.contexts_[ "run"     ]    = [ self.run, None, None ]
+    self.contexts_[ "main" ]       = [ self.main, self.mainWidgets_ ]
 
   def main( self, canvas ) :
     
@@ -187,21 +184,6 @@ class Renderer( object ) :
 
     # Get the current context widget manager
     self.contexts_[ self.currentContext_ ][1].onInput( pressType )
-    
-    # if self.contexts_[ self.currentContext_ ][1] is None :
-    #   # Assign default
-    #   self.contexts_[ self.currentContext_ ][1] = self.contexts_[ self.currentContext_ ][2]
-    #   self.contexts_[ self.currentContext_ ][1].select()
-
-    # #  We have an active widget
-    # else: #self.contexts_[ self.currentContext_ ][1] is not None :
-    #   if not self.contexts_[ self.currentContext_ ][1].hasFocus() :
-    #     newCurrentWidget = self.contexts_[ self.currentContext_ ][1].getLink( pressType )
-    #     if newCurrentWidget is not None :
-    #       self.contexts_[ self.currentContext_ ][1] = newCurrentWidget
-    #   else :
-    #     # Widget has focus from main control method, go to its handler
-    #     self.contexts_[ self.currentContext_ ][1].onInput( pressType )
 
     self.render()
 
