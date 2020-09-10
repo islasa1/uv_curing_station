@@ -261,6 +261,8 @@ class WidgetManager( Widget ) :
   def __init__( self ) :
     super(WidgetManager, self).__init__( )
     self.widgets_ = {}
+    # For when we need order
+    self.widgetsList_ = []
     self.currentWidget_ = None
     self.defaultWidget_ = None
     self.adjustCentroid_ = True
@@ -304,6 +306,7 @@ class WidgetManager( Widget ) :
   def addWidget( self, name, widget ) :
     if self.defaultWidget_ is None : self.defaultWidget_ = widget
     self.widgets_[ name ] = widget
+    self.widgetsList_.append( widget )
     
     # Revalutate center
     if self.adjustCentroid_ :
