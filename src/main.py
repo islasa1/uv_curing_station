@@ -90,7 +90,7 @@ class Renderer( object ) :
     self.valueSubdivisions_ = 10
     
     # Widgets
-    self.mainWidgets_ = WidgetManager( )
+    self.mainWidgets_ = widgets.WidgetManager( )
     self.mainWidgets_.addWidget( "PreviewGraph", widgets.Graph( x=44, y=44, width=84, height=84 ) )
     self.mainWidgets_.widgets_[ "PreviewGraph" ].gridPxIncx_ = 8
     self.mainWidgets_.widgets_[ "PreviewGraph" ].gridPxIncy_ = 8
@@ -103,12 +103,12 @@ class Renderer( object ) :
     self.mainWidgets_.addWidget( "ResolutionAdjust", widgets.TextBox( "Adjust\nTime", "darkgreen", 2, 2, 93, 17, 35, 20, self.font_, 1, spacing=2 ) )
     self.mainWidgets_.addWidget( "ResolutionTime",   widgets.TextBox( "For detailed info ->", "blue", 2, -1, 44, 38, 84, 6, self.smallfont_, 0 ) )
     
-    self.configWidgets_ = WidgetManager()
+    self.configWidgets_ = widgets.WidgetManager()
     self.configWidgets_.adjustCentroid_ = False
-    self.configWidgets_.centerX_ = mainWidgets_.widgets_[ "ConfigsBar" ].centerX_
-    self.configWidgets_.centerY_ = mainWidgets_.widgets_[ "ConfigsBar" ].centerY_
+    self.configWidgets_.centerX_ = self.mainWidgets_.widgets_[ "ConfigsBar" ].centerX_
+    self.configWidgets_.centerY_ = self.mainWidgets_.widgets_[ "ConfigsBar" ].centerY_
 
-    self.mainWidgets_.addWidget( self.configWidgets_ )
+    self.mainWidgets_.addWidget( "Configs", self.configWidgets_ )
 
     for cfg in self.model_.configs_ :
       self.addConfig( cfg )
@@ -129,10 +129,10 @@ class Renderer( object ) :
 
   def main( self, canvas ) :
     
-    for name, widgets in self.mainWidgets_.items() :
+    for name, widgets in self.mainWidgets_.widgets_.items() :
       widgets.draw( canvas )
-    for cfg in self.configWidgets_ :
-      cfg["widget"].draw( canvas )
+    for name, cfg in self.configWidgets_.widgets_.items() :
+      cfg.draw( canvas )
       
     if self.model_.currentConfigIdx_ :
       for name, dataset in self.model_.configs_[self.model_.currentConfigIdx_].datasets_.items() :
@@ -140,7 +140,7 @@ class Renderer( object ) :
                            dataset.value_ ) )
         incy = ( dataset.max_ - dataset.min_ ) / self.valueSubdivisions_
         
-        self.mainWidgets_[ "PreviewGraph" ].drawData( data, self.model_.timeResolution_, incy, "blue", "red" )
+        self.mainWidgets_.widgets_[ "PreviewGraph" ].drawData( data, self.model_.timeResolution_, incy, "blue", "red" )
         
   def settings( self, canvas ) :
     pass
@@ -163,9 +163,9 @@ class Renderer( object ) :
                                 truncName,
                                 "darkgreen",
                                 2, 3,
-                                self.mainWidgets_[ "ConfigsBar" ].x_ + 1,
+                                self.mainWidgets_.widgets_[ "ConfigsBar" ].x_ + 1,
                                 startPos,
-                                self.mainWidgets_[ "ConfigsBar" ].width_ - 2,
+                                self.mainWidgets_.widgets_[ "ConfigsBar" ].width_ - 2,
                                 widgetHeight,
                                 self.font_, 1
                                 )
@@ -176,7 +176,7 @@ class Renderer( object ) :
     cfgWidget.activeFg_       = "white"
     cfgWidget.activeBg_       = "black"
 
-    self.configWidgets_.addWidget( cfgWidget )
+    self.configWidgets_.addWidget( config.name_, cfgWidget )
     
   def buttonPress( self, button ) :
     pressType = self.hwctrl_.buttonMap_[ button.pin.number ] 
@@ -195,8 +195,8 @@ class Renderer( object ) :
     with self.hwctrl_.frameReg_ :
       with luma_render.canvas( self.hwctrl_.device_, dither=True ) as canvas :
         self.contexts_[ self.currentContext_ ][0]( canvas )
-        if self.contexts_[ self.currentContext_ ][1] is not None :
-          print( "Active Widget is : " + self.contexts_[ self.currentContext_ ][1].name_ ) 
+        if self.contexts_[ self.currentContext_ ][1].currentWidget_ is not None :
+          print( "Active Widget is : " + self.contexts_[ self.currentContext_ ][1].currentWidget_.name_ ) 
           
         
 

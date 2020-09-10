@@ -296,8 +296,8 @@ class WidgetManager( Widget ) :
               
           if widgetSelect is not None :
             self.currentWidget_.deselect()
-            widgetSelect_.select()
-            self.currentWidget_ = widgetSelect_
+            widgetSelect.select()
+            self.currentWidget_ = widgetSelect
           
       else :
         # Widget has focus from main control method, go to its handler
