@@ -91,34 +91,61 @@ class Renderer( object ) :
     
     # Widgets
     self.mainWidgets_ = widgets.WidgetManager( )
-    self.mainWidgets_.addWidget( "PreviewGraph", widgets.Graph( x=44, y=44, width=84, height=84 ) )
-    self.mainWidgets_.widgets_[ "PreviewGraph" ].gridPxIncx_ = 8
-    self.mainWidgets_.widgets_[ "PreviewGraph" ].gridPxIncy_ = 8
+    self.mainWidgets_.name_ = "main"
 
     self.mainWidgets_.addWidget( "Settings",         widgets.TextBox( "Settings", "darkgreen", 1, 5,  0,  0, 43, 16, self.font_, 1 ) )
     self.mainWidgets_.addWidget( "Hardware",         widgets.TextBox( "Hardware", "darkgreen", 1, 5, 44,  0, 43, 16, self.font_, 1 ) )
-    self.mainWidgets_.addWidget( "Help",             widgets.TextBox( "Help",     "darkgreen", 4, 5, 89,  0, 28, 16, self.font_, 1 ) )
-    self.mainWidgets_.addWidget( "ConfigsBar",       widgets.TextBox( "No\nConfigs\nLoaded", "darkgreen", 2, 5, 0, 17, 43, 110, self.font_, 1 ) )
-    self.mainWidgets_.addWidget( "Resolution",       widgets.TextBox( "Timescale\n" + str( self.model_.timeResolution_ ) + " sec", "darkgreen", 2, 2, 44, 17, 48, 20, self.font_, 1, spacing=2 ) )
+    self.mainWidgets_.addWidget( "Help",             widgets.TextBox( "Help",     "darkgreen", 10, 5, 88,  0, 40, 16, self.font_, 1 ) )
+    self.mainWidgets_.addWidget( "ConfigsBar",       widgets.TextBox( "No\nConfigs\nLoaded", "darkgreen", 2, 5, 0, 17, 43, 110, self.font_, 2 ) )
+    self.mainWidgets_.addWidget( "Resolution",       widgets.TextBox( "Timescale\n" + str( self.model_.timeResolution_ ) + " sec", "darkgreen", 2, 2, 44, 17, 48, 20, self.font_, 1, spacing=2 ), canSelect=False )
     self.mainWidgets_.addWidget( "ResolutionAdjust", widgets.TextBox( "Adjust\nTime", "darkgreen", 2, 2, 93, 17, 35, 20, self.font_, 1, spacing=2 ) )
-    self.mainWidgets_.addWidget( "ResolutionTime",   widgets.TextBox( "For detailed info ->", "blue", 2, -1, 44, 38, 84, 6, self.smallfont_, 0 ) )
+    self.mainWidgets_.addWidget( "InfoLabel",        widgets.TextBox( "For detailed info ->", "blue", 2, -1, 44, 38, 84, 6, self.smallfont_, 0 ), canSelect=False )
+
+    self.mainWidgets_.addWidget( "PreviewGraph", widgets.Graph( x=44, y=44, width=84, height=84 ) )
+    self.mainWidgets_.widgets_[ "PreviewGraph" ].gridPxIncx_ = 8
+    self.mainWidgets_.widgets_[ "PreviewGraph" ].gridPxIncy_ = 8
     
     self.configWidgets_ = widgets.WidgetManager()
+    self.configWidgets_.name_ = "configs"
     self.configWidgets_.adjustCentroid_ = False
-    self.configWidgets_.centerX_ = self.mainWidgets_.widgets_[ "ConfigsBar" ].centerX_
-    self.configWidgets_.centerY_ = self.mainWidgets_.widgets_[ "ConfigsBar" ].centerY_
 
-    self.mainWidgets_.addWidget( "Configs", self.configWidgets_ )
+    # Callbacks
+    self.mainWidgets_.widgets_[ "ConfigsBar" ].addInput( self.configWidgets_.onInput )
+    self.mainWidgets_.widgets_[ "ConfigsBar" ].addInput( self.handleConfigs )
+    self.mainWidgets_.widgets_[ "ConfigsBar" ].defocusCondition_ = self.checkLeaveConfigs
 
+    self.mainWidgets_.widgets_[ "PreviewGraph" ].addInput( self.handleGraph )
+    self.mainWidgets_.widgets_[ "PreviewGraph" ].defocusCondition_ = self.checkLeaveGraph
+
+    self.mainWidgets_.widgets_[ "ResolutionAdjust" ].addInput( self.handleResAdjust )
+
+    self.maxConfigsOnScreen_ = 4
+    self.configHeight_       = 17
     for cfg in self.model_.configs_ :
       self.addConfig( cfg )
+    self.checkLeaveConfigs( "noop" )
     
     for name, widget in self.mainWidgets_.widgets_.items() :
       widget.name_ = name
       widget.fg_ = "green"
       widget.bg_ = ImageColor.getrgb( "#1f0f0f" )
-      widget.activeFg_       = "white"
-      widget.activeBg_       = "black"
+      widget.selectFg_       = "white"
+      widget.selectBg_       = "black"
+      
+      widget.focusFg_       = "orange"
+      widget.focusBg_       = "black"
+      widget.deselect()
+
+    for name, widget in self.configWidgets_.widgets_.items() :
+      widget.name_ = name
+      widget.fg_ = "green"
+      widget.bg_ = ImageColor.getrgb( "#1f0f0f" )
+      widget.selectFg_       = "white"
+      widget.selectBg_       = "black"
+      
+      widget.focusFg_       = "orange"
+      widget.focusBg_       = "black"
+      widget.deselect()
       
     self.quit_ = False
 
@@ -134,13 +161,21 @@ class Renderer( object ) :
     for name, cfg in self.configWidgets_.widgets_.items() :
       cfg.draw( canvas )
       
-    if self.model_.currentConfigIdx_ :
-      for name, dataset in self.model_.configs_[self.model_.currentConfigIdx_].datasets_.items() :
+    if self.model_.getCurrentConfig() is not None:
+      print( "Previewing config : " + self.model_.getCurrentConfig().name_ )
+      for name, dataset in self.model_.getCurrentConfig().datasets_.items() :
         data = np.array( ( dataset.time_,
                            dataset.value_ ) )
         incy = ( dataset.max_ - dataset.min_ ) / self.valueSubdivisions_
+        print( "Dataset " + str( dataset.name_ ) + " between " + str( dataset.min_ ) + " and " + str( dataset.max_ ) + " at resolution " + str( incy ) )
         
-        self.mainWidgets_.widgets_[ "PreviewGraph" ].drawData( data, self.model_.timeResolution_, incy, "blue", "red" )
+        self.mainWidgets_.widgets_[ "PreviewGraph" ].drawData(
+                                                              data,
+                                                              self.model_.timeResolution_ / self.valueSubdivisions_,
+                                                              incy,
+                                                              dataset.lineColor_,
+                                                              dataset.pointColor_
+                                                              )
         
   def settings( self, canvas ) :
     pass
@@ -150,15 +185,60 @@ class Renderer( object ) :
     pass
   def run( self, canvas ) :
     pass
+
+  def handleGraph( self, direction ) :
+    # Up and down are flipped because of the Y inverted pixels
+    if direction == "up" :
+      self.mainWidgets_.widgets_[ "PreviewGraph" ].moveDown()
+    elif direction == "down" :
+      self.mainWidgets_.widgets_[ "PreviewGraph" ].moveUp()
+    elif direction == "left" :
+      self.mainWidgets_.widgets_[ "PreviewGraph" ].moveLeft()
+    elif direction == "right" :
+      self.mainWidgets_.widgets_[ "PreviewGraph" ].moveRight()
+
+  def checkLeaveGraph( self, direction ) :
+    leaveGraph = ( direction == "press" )
+    if leaveGraph :
+      self.mainWidgets_.widgets_[ "PreviewGraph" ].drawPosX_ = 0
+      self.mainWidgets_.widgets_[ "PreviewGraph" ].drawPosY_ = 0
+    return leaveGraph
+    
+  def handleConfigs( self, direction ) :
+    currentIdx = self.configWidgets_.getCurrentWidgetIndex( )
+    self.model_.currentConfigIdx_ = currentIdx
+    
+    # Loop and move everything up, hiding others        
+    for i in range( 0, len( self.configWidgets_.widgetsList_ ) ) :
+      if currentIdx > self.maxConfigsOnScreen_ and currentIdx != len( self.configWidgets_.widgetsList_ ) - 1 :
+        if direction == "up" :
+          self.configWidgets_.widgetsList_[i].setY( self.configWidgets_.widgetsList_[i].y_ + self.configHeight_ )
+        elif direction == "down" :
+          self.configWidgets_.widgetsList_[i].setY( self.configWidgets_.widgetsList_[i].y_ - self.configHeight_ )
+      if ( ( self.configWidgets_.widgetsList_[i].centerY_ < self.mainWidgets_.widgets_[ "ConfigsBar" ].y_ ) or
+           ( self.configWidgets_.widgetsList_[i].centerY_ > ( self.mainWidgets_.widgets_[ "ConfigsBar" ].y_ + self.mainWidgets_.widgets_[ "ConfigsBar" ].height_ ) ) ) :
+        self.configWidgets_.widgetsList_[i].hide()
+        print( "Hiding " + self.configWidgets_.widgetsList_[i].name_ )
+      else : # within bounds
+        self.configWidgets_.widgetsList_[i].unhide()
+        print( "Showing " + self.configWidgets_.widgetsList_[i].name_ ) 
+
+      
+  def checkLeaveConfigs( self, direction ) :
+    currentIdx = self.configWidgets_.getCurrentWidgetIndex( )
+    return ( ( direction == "right" ) or
+             ( ( direction == "up" ) and
+               ( currentIdx == 0 )
+               )
+             )
     
   def addConfig( self, config ) :
     # We have at least one config now
     self.mainWidgets_.widgets_[ "ConfigsBar" ].text_ = ""
     truncName = ( config.name_[:6] + '..') if len(config.name_) > 8 else config.name_
-    widgetHeight = 16
     startPos = ( self.mainWidgets_.widgets_[ "ConfigsBar" ].y_ + 1 
                   if len( self.configWidgets_.widgetsList_ ) == 0 
-                  else self.configWidgets_.widgetsList_[-1].y_ + widgetHeight + 1 )
+                  else self.configWidgets_.widgetsList_[-1].y_ + self.configHeight_ + 1 )
     cfgWidget = widgets.TextBox(
                                 truncName,
                                 "darkgreen",
@@ -166,17 +246,18 @@ class Renderer( object ) :
                                 self.mainWidgets_.widgets_[ "ConfigsBar" ].x_ + 1,
                                 startPos,
                                 self.mainWidgets_.widgets_[ "ConfigsBar" ].width_ - 2,
-                                widgetHeight,
+                                self.configHeight_,
                                 self.font_, 1
                                 )
+    
+    name = config.name_ + " - " + str( len( self.configWidgets_.widgetsList_ ) )
+    print( "Adding config widget : " + name ) 
+    self.configWidgets_.addWidget( name, cfgWidget )
 
-    cfgWidget.name_ = config.name_
-    cfgWidget.fg_ = "green"
-    cfgWidget.bg_ = ImageColor.getrgb( "#1f0f0f" )
-    cfgWidget.activeFg_       = "white"
-    cfgWidget.activeBg_       = "black"
-
-    self.configWidgets_.addWidget( config.name_, cfgWidget )
+  def handleResAdjust( self, direction ) :
+    if direction == "press" :
+      self.model_.timeResolution_ = ( self.model_.timeResolution_ % 60 ) + 5
+      self.mainWidgets_.widgets_[ "Resolution" ].text_ = "Timescale\n" + str( self.model_.timeResolution_ ) + " sec"
     
   def buttonPress( self, button ) :
     pressType = self.hwctrl_.buttonMap_[ button.pin.number ] 
@@ -205,6 +286,8 @@ class DataSet( object ) :
     self.name_  = name
     self.time_  = np.zeros( (0) )
     self.value_ = np.zeros( (0) )
+    self.lineColor_  = "blue"
+    self.pointColor_ = "red"
 
     # These are NOT the value min/max
     # but the expected absolute max of the system
@@ -229,6 +312,10 @@ class Configuration( object ) :
       dataset.value_ = np.array( data["value"] )
       dataset.min_   = data["min"]
       dataset.max_   = data["max"]
+      if "lineColor" in data :
+        dataset.lineColor_ = data["lineColor"]
+      if "pointColor" in data :
+        dataset.pointColor_ = data["pointColor"]
       self.datasets_[dataset.name_] = dataset
      
   
@@ -243,7 +330,7 @@ class DataModel( object ) :
     self.timeResolution_ = 30
 
     # Current config selected
-    self.currentConfigIdx_ = None
+    self.currentConfigIdx_ = -1
 
     # where to load from
     self.dataFolder_ = "configs/"
@@ -261,6 +348,12 @@ class DataModel( object ) :
 
     if self.currentConfigIdx_ is None and len( self.configs_ ) > 0 :
       self.currentConfigIdx_ = 0
+      
+  def getCurrentConfig( self ) :
+    if self.currentConfigIdx_ >= 0 :
+      return self.configs_[ self.currentConfigIdx_ ]
+    else :
+      return None
   
 if __name__ == '__main__':
   

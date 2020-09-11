@@ -8,47 +8,70 @@ class Widget( object ) :
     self.width_ = width
     self.height_ = height
 
-    self.centerX_ = self.x_ + self.width_ / 2
-    self.centerY_ = self.y_ + self.height_ / 2
+    self.centerX_ = -1
+    self.centerY_ = -1
+    self.calcCentroid()
     
     self.fg_     = "white"
     self.bg_     = "black"
-    self.activeFg_ = "black"
-    self.activeBg_ = "white"
+    self.selectFg_ = "black"
+    self.selectBg_ = "white"
+    self.focusFg_ = "black"
+    self.focusBg_ = "white"
+
+    self.currentFg_ = self.fg_
+    self.currentBg_ = self.bg_
+    
     self.selected_ = False
     self.swapOnSelect_ = True
+    self.canSelect_    = True
+
     self.canvas_ = None
     self.links_  = {}
-    self.onInput_  = None
+    
+    self.onInput_  = []
+    self.defocusCondition_ = None
+    
     self.hasFocus_ = False
+    self.swapOnFocus_ = True
     self.hidden_   = False
-    self.name_     = "Widget" 
+    self.name_     = "Widget"
 
   def setX( self, x ) :
     self.x_ = x
+    self.calcCentroid()
 
   def setY( self, y ) :
     self.y_ = y
+    self.calcCentroid()
 
   def setWidth( self, width ) :
     self.width_ = width
+    self.calcCentroid()
 
   def setHeight( self, height ) :
     self.height_ = height
+    self.calcCentroid()
 
   def setXY( self, x, y ) :
     self.x_ = x
     self.y_ = y
+    self.calcCentroid()
 
   def setWH( self, width, height ) :
     self.width_ = width
     self.height_ = height
+    self.calcCentroid()
 
   def setXY( self, xy ) :
     self.setXY( xy[0], xy[1] )
 
   def setWH( self, wh ) :
     self.setWH( wh[0], wh[1] )
+
+  def calcCentroid( self ) :
+    self.centerX_ = self.x_ + self.width_ / 2
+    self.centerY_ = self.y_ + self.height_ / 2
 
   def setForeground( self, color ) :
     self.fg_ = color
@@ -66,31 +89,44 @@ class Widget( object ) :
 
   def focus( self ) :
     self.hasFocus_ = True
+    if self.swapOnFocus_ :
+      self.swapCurrentColors( self.focusFg_, self.focusBg_ )
   def defocus( self ) :
     self.hasFocus_ = False
+    if self.swapOnFocus_ :
+      self.swapCurrentColors( self.fg_, self.bg_ )
 
-  def onInput( self, inputType="press" ) :
-    if self.onInput_ is not None :
-      self.onInput_( inputType )
+  def addInput( self, handler ) :
+    self.onInput_.append( handler )
+    
+  def onInput( self, direction ) :
+    print( "Processing onInput( " + direction + " ) for Widget " + self.name_ )
+
+    # Check for defocus before handling state change
+    if self.defocusCondition_ is None or self.defocusCondition_( direction ) :
+      # operation done
+      self.defocus()
       
-  def swapActiveColors( self ) :
-    if self.swapOnSelect_ :
-      tmp = self.fg_
-      self.fg_ = self.activeFg_
-      self.activeFg_ = tmp
-      tmp = self.bg_
-      self.bg_ = self.activeBg_
-      self.activeBg_ = tmp
+    if len( self.onInput_ ) > 0 :
+      for handler in self.onInput_ :
+        handler( direction )
       
+    
+      
+  def swapCurrentColors( self, fg, bg ) :
+    self.currentFg_ = fg
+    self.currentBg_ = bg      
       
   def select( self ) :
     self.selected_ = True
     # swap colors
-    self.swapActiveColors()
+    if self.swapOnSelect_ :
+      self.swapCurrentColors( self.selectFg_, self.selectBg_ )
 
   def deselect( self ) :
     self.selected_ = False
-    self.swapActiveColors()
+    if self.swapOnSelect_ :
+      self.swapCurrentColors( self.fg_, self.bg_ )
     
   def link( self, direction, widget ) :
     self.links_[direction] = widget
@@ -126,7 +162,7 @@ class TextBox( Widget ):
     self.spacing_   = spacing
 
   def render( self ) :
-    self.canvas_.rectangle( [ self.x_, self.y_, self.x_ + self.width_, self.y_ + self.height_ ], fill=self.bg_, outline=self.fg_, width=self.borderpx_  )
+    self.canvas_.rectangle( [ self.x_, self.y_, self.x_ + self.width_, self.y_ + self.height_ ], fill=self.currentBg_, outline=self.currentFg_, width=self.borderpx_  )
     self.canvas_.text( [ self.textPosX_ + self.x_, self.textPosY_ + self.y_ ], self.text_, font=self.font_, fill=self.textColor_, align=self.align_, spacing=self.spacing_ )
 
 class Graph(Widget):
@@ -161,7 +197,7 @@ class Graph(Widget):
     self.drawPosY_ += 1 
 
   def render( self ) :
-    self.canvas_.rectangle( [ self.x_, self.y_, self.x_ + self.width_, self.y_ + self.height_ ], fill=None, outline=self.fg_, width=self.borderpx_  )
+    self.canvas_.rectangle( [ self.x_, self.y_, self.x_ + self.width_, self.y_ + self.height_ ], fill=self.currentBg_, outline=self.currentFg_, width=self.borderpx_  )
 
     for linePos in range( self.x_ + self.borderpx_,
                           self.x_ + self.width_ - self.borderpx_,
@@ -213,8 +249,8 @@ class Graph(Widget):
     indicesToDraw = ( data[0] >= self.dataStart_ ) & ( data[0] <= self.dataEnd_ )
 
     dataToDrawX   = data[0][indicesToDraw]
-    dataToDrawY   = data[0][indicesToDraw]
-
+    dataToDrawY   = data[1][indicesToDraw]
+    
     interpLeft     = False
     interpLeftIdx  = 0
     interpRight    = False
@@ -253,7 +289,10 @@ class Graph(Widget):
 
     # Now rest of lines
     pts = list( zip( self.getXDataPx( dataToDrawX ), self.getYDataPx( dataToDrawY ) ) )
+    # print( "X : " + str( dataToDrawX ) )
+    # print( "Y : " + str( dataToDrawY ) )
     # print( pts )
+    
     self.canvas_.line( pts, fill=color, width=1 )
     self.canvas_.point( pts, fill=ptColor )
 
@@ -268,13 +307,16 @@ class WidgetManager( Widget ) :
     self.adjustCentroid_ = True
 
   def onInput( self, direction ) :
+    print( "Inside of manager : " + self.name_ )
     if self.currentWidget_ is None :
       self.currentWidget_ = self.defaultWidget_
       self.currentWidget_.select()
     else :
             
       if not self.currentWidget_.hasFocus() :
-        if direction == "press" : self.currentWidget_.focus()
+        if direction == "press" :
+          self.currentWidget_.focus()
+          # self.currentWidget_.onInput( direction )
         else :
           # First filter by all widgets to the direction of what we want
           # then by how close they
@@ -283,10 +325,11 @@ class WidgetManager( Widget ) :
           lastDistance = -1
         
           for name, widget in self.widgets_.items() :          
-            if ( ( direction == "up" and widget.centerY_ < self.currentWidget_.centerY_    ) or
-                 ( direction == "down" and widget.centerY_ > self.currentWidget_.centerY_  ) or 
-                 ( direction == "left" and widget.centerX_ < self.currentWidget_.centerX_  ) or 
-                 ( direction == "right" and widget.centerX_ > self.currentWidget_.centerX_ ) ) :
+            if ( widget.canSelect_ and
+                 ( ( direction == "up" and widget.centerY_ < self.currentWidget_.centerY_    ) or
+                   ( direction == "down" and widget.centerY_ > self.currentWidget_.centerY_  ) or 
+                   ( direction == "left" and widget.centerX_ < self.currentWidget_.centerX_  ) or 
+                   ( direction == "right" and widget.centerX_ > self.currentWidget_.centerX_ ) ) ) :
               pointB   = np.array( ( widget.centerX_, widget.centerY_ ) )
               distance = np.linalg.norm( pointA - pointB )
             
@@ -301,12 +344,15 @@ class WidgetManager( Widget ) :
           
       else :
         # Widget has focus from main control method, go to its handler
-        self.currentWidget_.onInput( pressType )
+        self.currentWidget_.onInput( direction )
 
-  def addWidget( self, name, widget ) :
+    print( "Current Widget for " + self.name_ + " is " + self.currentWidget_.name_ + " ( has focus : " + str( self.currentWidget_.hasFocus() ) + ")" )
+
+  def addWidget( self, name, widget, canSelect=True ) :
     if self.defaultWidget_ is None : self.defaultWidget_ = widget
     self.widgets_[ name ] = widget
     self.widgetsList_.append( widget )
+    self.widgets_[ name ].canSelect_ = canSelect
     
     # Revalutate center
     if self.adjustCentroid_ :
@@ -317,3 +363,8 @@ class WidgetManager( Widget ) :
       self.centerX_ = np.sum( x ) / len( x )
       self.centerY_ = np.sum( y ) / len( y )
   
+  def getCurrentWidgetIndex( self ) :
+    if self.currentWidget_ is not None :
+      return self.widgetsList_.index( self.currentWidget_ )
+    else :
+      return 0
