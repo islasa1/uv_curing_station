@@ -310,7 +310,8 @@ class WidgetManager( Widget ) :
     print( "Inside of manager : " + self.name_ )
     if self.currentWidget_ is None :
       self.currentWidget_ = self.defaultWidget_
-      self.currentWidget_.select()
+      if self.currentWidget_ is None :
+        self.currentWidget_.select()
     else :
             
       if not self.currentWidget_.hasFocus() :
