@@ -16,6 +16,7 @@ import numpy as np
 import atexit
 import json
 import glob
+import threading
 
 # Shield
 #KEY_UP_PIN     = 6
@@ -83,10 +84,14 @@ class Renderer( object ) :
     self.hwctrl_ = ctrl
     self.model_  = model
     self.updateHz_ = 30
-    self.profileRunner_ = multitimer.MultiTimer( interval=1.0/self.updateHz_, function=self.runProfile, kwargs={ 'interval' : 1.0/self.updateHz_ }, runonstart=True )
+    self.manualTimeAdjust_ = 2.5 # To dial in actual time stepping, this isn't fancy ok it barely works
+    # We are going to make it think it's running 2x faster, as it is slow af
+    self.profileRunner_ = multitimer.MultiTimer( interval=1.0/self.updateHz_, function=self.runProfile, kwargs={ 'interval' : self.manualTimeAdjust_/self.updateHz_ }, runonstart=True )
     self.frameReg_ = luma_sprite.framerate_regulator( fps=self.updateHz_ )
     self.font_   = ImageFont.truetype( "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=8 )
     self.smallfont_   = ImageFont.truetype( "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=7 )
+
+    self.lock_ = threading.Lock()
 
     self.baseCanvas_ = None
     self.setupImg_   = Image.open( "resources/setup.png" )
@@ -105,19 +110,21 @@ class Renderer( object ) :
     self.mainWidgets_ = widgets.WidgetManager( )
     self.mainWidgets_.name_ = "main"
 
-    self.mainWidgets_.addWidget( "Settings",         widgets.TextBox( "Settings", "darkgreen", 1, 5,  0,  0, 43, 16, self.font_, 1 ) )
-    self.mainWidgets_.addWidget( "Hardware",         widgets.TextBox( "Hardware", "darkgreen", 1, 5, 44,  0, 43, 16, self.font_, 1 ) )
-    self.mainWidgets_.addWidget( "Help",             widgets.TextBox( "Help",     "darkgreen", 10, 5, 88,  0, 40, 16, self.font_, 1 ) )
-    self.mainWidgets_.addWidget( "ConfigsBar",       widgets.TextBox( "No\nConfigs\nLoaded", "darkgreen", 2, 5, 0, 17, 43, 110, self.font_, 2 ) )
-    self.mainWidgets_.addWidget( "Resolution",       widgets.TextBox( "Timescale\n" + str( self.model_.timeResolution_ ) + " sec", "darkgreen", 2, 2, 44, 17, 48, 20, self.font_, 1, spacing=2 ), canSelect=False )
-    self.mainWidgets_.addWidget( "ResolutionAdjust", widgets.TextBox( "Adjust\nTime", "darkgreen", 2, 2, 93, 17, 35, 20, self.font_, 1, spacing=2 ) )
-    self.mainWidgets_.addWidget( "InfoLabel",        widgets.TextBox( "For detailed info ->", "blue", 2, -1, 44, 38, 84, 6, self.smallfont_, 0 ), canSelect=False )
+    #self.mainWidgets_.addWidget( "Settings",         widgets.TextBox( "Settings", "darkgreen", 1, 5,  0,  0, 43, 16, self.font_, 1 ) )
+    #self.mainWidgets_.addWidget( "Hardware",         widgets.TextBox( "Hardware", "darkgreen", 1, 5, 44,  0, 43, 16, self.font_, 1 ) )
+    #self.mainWidgets_.addWidget( "Help",             widgets.TextBox( "Help",     "darkgreen", 10, 5, 88,  0, 40, 16, self.font_, 1 ) )
+    self.mainWidgets_.addWidget( "ConfigsBar",       widgets.TextBox( "No\nConfigs\nLoaded", "darkgreen", 2, 5, 0, 0, 43, 128, self.font_, 2 ) )
+    self.mainWidgets_.addWidget( "Resolution",       widgets.TextBox( "Interval " + str( self.model_.timeResolution_ ) + " sec", "darkgreen", 2, 2, 44, 0, 84, 16, self.font_, 1, spacing=2 ), canSelect=False )
+    self.mainWidgets_.addWidget( "TimeAdjustUp",     widgets.TextBox( "^UP",   "lightblue", 2, 1, 128,  0, 31, 8, self.font_, 1, spacing=2 ) )
+    self.mainWidgets_.addWidget( "TimeAdjustDown",   widgets.TextBox( "vDOWN", "tomato",    2, 1, 128,   8, 31, 8, self.font_, 1, spacing=2 ) )
+    #self.mainWidgets_.addWidget( "InfoLabel",        widgets.TextBox( "For detailed info ->", "blue", 2, -1, 44, 38, 84, 6, self.smallfont_, 0 ), canSelect=False )
 
     # Still part of main widgets just a subcategory
     self.dataWidgets_ = widgets.WidgetManager()
-    self.dataWidgets_.addWidget( "Data_zaxis",       widgets.TextBox( "Click Config\nfor data\npreview", "blue", 2, -1, 129,  0, 31, 15, self.smallfont_, 0, spacing=0 ), canSelect=False )
-    self.dataWidgets_.addWidget( "Data_fan",         widgets.TextBox( "Click Config\nfor data\npreview", "blue", 2, -1, 129, 15, 31, 15, self.smallfont_, 0, spacing=0 ), canSelect=False )
-    self.dataWidgets_.addWidget( "Data_lights",      widgets.TextBox( "Click Config\nfor data\npreview", "blue", 2, -1, 129, 30, 31, 15, self.smallfont_, 0, spacing=0 ), canSelect=False )
+    self.dataWidgets_.addWidget( "Data_zaxis",       widgets.TextBox( "NO DATA", "blue", 0, 1,  44, 17, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
+    self.dataWidgets_.addWidget( "Data_fan",         widgets.TextBox( "NO DATA", "blue", 3, 1, 102, 17, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
+    self.dataWidgets_.addWidget( "Data_lights",      widgets.TextBox( "NO DATA", "blue", 0, 1,  44, 30, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
+    self.dataWidgets_.addWidget( "Data_time",        widgets.TextBox( "NO DATA", "blue", 3, 1, 102, 30, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
     self.dataWidgets_.addWidget( "UV",               widgets.TextBox( "", "blue", 2, -1, 132, 113, 22, 9, self.smallfont_, 0 ), canSelect=False )
     self.dataWidgets_.addWidget( "Fan",              widgets.TextBox( "", "blue", 2, -1, 131, 105, 24, 3, self.smallfont_, 0 ), canSelect=False )
 
@@ -137,7 +144,8 @@ class Renderer( object ) :
     self.mainWidgets_.widgets_[ "PreviewGraph" ].addInput( self.handleGraph )
     self.mainWidgets_.widgets_[ "PreviewGraph" ].defocusCondition_ = self.checkLeaveGraph
 
-    self.mainWidgets_.widgets_[ "ResolutionAdjust" ].addInput( self.handleResAdjust )
+    self.mainWidgets_.widgets_[ "TimeAdjustUp"   ].addInput( self.handleResAdjustUp   )
+    self.mainWidgets_.widgets_[ "TimeAdjustDown" ].addInput( self.handleResAdjustDown )
 
     self.maxConfigsOnScreen_ = 4
     self.configHeight_       = 17
@@ -181,9 +189,10 @@ class Renderer( object ) :
       # Stop yourself before you wreck yourself
       print( "Profile finished... Stopping [ total profile time : " + str( self.model_.getCurrentTotalTime() ) + "]" )
       self.model_.currentTime_ = -1
+      self.mainWidgets_.widgets_[ "PreviewGraph" ].drawPosX_ = 0
       self.profileRunner_.stop()
 
-    print( "Current time is : " + str( self.model_.currentTime_ ) + " seconds" )
+    #print( "Current time is : " + str( self.model_.currentTime_ ) + " seconds" )
     # Write data to hw controller
     # todo
     
@@ -204,7 +213,7 @@ class Renderer( object ) :
       data.draw( canvas )
       
     if self.model_.getCurrentConfig() is not None:
-      print( "Previewing config : " + self.model_.getCurrentConfig().name_ )
+      # print( "Previewing config : " + self.model_.getCurrentConfig().name_ )
       
       
       
@@ -270,10 +279,11 @@ class Renderer( object ) :
         currentData   = self.model_.getCurrentData( )
         currentConfig = self.model_.getCurrentConfig( )
         
-
+        self.dataWidgets_.widgets_[ "Data_time" ].text_ = "Time " + "{:3.2f}".format( self.model_.currentTime_ ) + " sec"
+        
         for name, value in currentData.items() :
           # This is very dependent on the data widgets being there, I don't like it but I'm so tired at this point
-          self.dataWidgets_.widgets_[ "Data_" + name ].text_ += name + ":\n" + "{:4.2f}".format( value ) + "\n"
+          self.dataWidgets_.widgets_[ "Data_" + name ].text_ += "{0: <4}".format( name ) + " " + "{:3.2f}".format( value )
           self.dataWidgets_.widgets_[ "Data_" + name ].textColor_    = currentConfig.datasets_[ name ].lineColor_
 
           if name == "fan" :
@@ -363,14 +373,19 @@ class Renderer( object ) :
     print( "Adding config widget : " + name ) 
     self.configWidgets_.addWidget( name, cfgWidget )
 
-  def handleResAdjust( self, direction ) :
+  def handleResAdjustUp( self, direction ) :
     if direction == "press" :
-      self.model_.timeResolution_ = ( self.model_.timeResolution_ % 60 ) + 5
+      self.model_.timeResolution_ = np.minimum( self.model_.timeResolution_ + 5, 60 )
+      self.mainWidgets_.widgets_[ "Resolution" ].text_ = "Timescale\n" + str( self.model_.timeResolution_ ) + " sec"
+
+  def handleResAdjustDown( self, direction ) :
+    if direction == "press" :
+      self.model_.timeResolution_ = np.maximum( self.model_.timeResolution_ - 5, 5 )
       self.mainWidgets_.widgets_[ "Resolution" ].text_ = "Timescale\n" + str( self.model_.timeResolution_ ) + " sec"
     
   def buttonPress( self, button ) :
     pressType = self.hwctrl_.buttonMap_[ button.pin.number ] 
-    print( "You pressed " + pressType )
+    # print( "You pressed " + pressType )
 
     # Get the current context widget manager
     self.contexts_[ self.currentContext_ ][1].onInput( pressType )
@@ -381,13 +396,16 @@ class Renderer( object ) :
     return self.quit_
       
   def render( self ) :
-
+    self.lock_.acquire()
+    
     with self.frameReg_ :
       self.baseCanvas_ = luma_render.canvas( self.hwctrl_.device_, dither=True )
       with  self.baseCanvas_ as canvas :
         self.contexts_[ self.currentContext_ ][0]( canvas )
-        if self.contexts_[ self.currentContext_ ][1].currentWidget_ is not None :
-          print( "Active Widget is : " + self.contexts_[ self.currentContext_ ][1].currentWidget_.name_ ) 
+        #if self.contexts_[ self.currentContext_ ][1].currentWidget_ is not None :
+          # print( "Active Widget is : " + self.contexts_[ self.currentContext_ ][1].currentWidget_.name_ )
+
+    self.lock_.release()
           
         
 
