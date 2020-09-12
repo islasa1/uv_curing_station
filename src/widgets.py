@@ -101,7 +101,7 @@ class Widget( object ) :
     self.onInput_.append( handler )
     
   def onInput( self, direction ) :
-    print( "Processing onInput( " + direction + " ) for Widget " + self.name_ )
+    # print( "Processing onInput( " + direction + " ) for Widget " + self.name_ )
 
     # Check for defocus before handling state change
     if self.defocusCondition_ is None or self.defocusCondition_( direction ) :
@@ -121,7 +121,10 @@ class Widget( object ) :
   def swapCurrentColors( self, fg, bg ) :
     self.currentFg_ = fg
     self.currentBg_ = bg      
-      
+
+  def isSelected( self ) :
+    return self.selected_
+  
   def select( self ) :
     self.selected_ = True
     # swap colors
@@ -315,10 +318,10 @@ class WidgetManager( Widget ) :
     self.adjustCentroid_ = True
 
   def onInput( self, direction ) :
-    print( "Inside of manager : " + self.name_ )
+    # print( "Inside of manager : " + self.name_ )
     if self.currentWidget_ is None :
       self.currentWidget_ = self.defaultWidget_
-      if self.currentWidget_ is None :
+      if self.currentWidget_ is not None :
         self.currentWidget_.select()
     else :
             
@@ -355,7 +358,7 @@ class WidgetManager( Widget ) :
         # Widget has focus from main control method, go to its handler
         self.currentWidget_.onInput( direction )
 
-    print( "Current Widget for " + self.name_ + " is " + self.currentWidget_.name_ + " ( has focus : " + str( self.currentWidget_.hasFocus() ) + ")" )
+    # print( "Current Widget for " + self.name_ + " is " + self.currentWidget_.name_ + " ( has focus : " + str( self.currentWidget_.hasFocus() ) + " / is selected " + str( self.currentWidget_.isSelected() ) + ") " )
 
   def addWidget( self, name, widget, canSelect=True ) :
     if self.defaultWidget_ is None : self.defaultWidget_ = widget
