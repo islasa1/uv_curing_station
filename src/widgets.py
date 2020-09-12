@@ -1,5 +1,6 @@
 import PIL
 import numpy as np
+from inspect import signature
 
 class Widget( object ) :
   def __init__( self, x=0, y=0, width=1, height=1 ):
@@ -109,7 +110,11 @@ class Widget( object ) :
       
     if len( self.onInput_ ) > 0 :
       for handler in self.onInput_ :
-        handler( direction )
+        sig = signature( handler )
+        if len( sig.parameters ) > 0 :
+          handler( direction )
+        else :
+          handler( )
       
     
       
