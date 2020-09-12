@@ -6,6 +6,7 @@ from luma.core.interface.serial import spi as luma_spi
 import luma.core.render as luma_render
 import luma.core.sprite_system as luma_sprite
 from PIL import ImageFont, ImageColor, Image
+import multitimer
 
 import sys
 import time
@@ -75,14 +76,15 @@ class HardwareController( object ) :
     for key, value in self.buttons_.items() :
       self.buttonMap_[ value.pin.number ] = key
 
-    self.frameReg_ = luma_sprite.framerate_regulator( fps=30 )
-
   
 
 class Renderer( object ) :
   def __init__( self, ctrl, model ) :
     self.hwctrl_ = ctrl
     self.model_  = model
+    self.updateHz_ = 30
+    self.profileRunner_ = multitimer.MultiTimer( interval=1.0/self.updateHz_, function=self.runProfile, kwargs={ 'interval' : 1.0/self.updateHz_ }, runonstart=True )
+    self.frameReg_ = luma_sprite.framerate_regulator( fps=self.updateHz_ )
     self.font_   = ImageFont.truetype( "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=8 )
     self.smallfont_   = ImageFont.truetype( "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=7 )
 
@@ -173,15 +175,20 @@ class Renderer( object ) :
     self.contexts_[ "main" ]       = [ self.main, self.mainWidgets_ ]
 
   def runProfile( self, interval=1.0 ) :
-    self.model_.currentTime_ += interval
+    if self.model_.currentTime_ == -1 : self.model_.currentTime_ = 0
+    
     if self.model_.currentTime_ > self.model_.getCurrentTotalTime() :
       # Stop yourself before you wreck yourself
+      print( "Profile finished... Stopping [ total profile time : " + str( self.model_.getCurrentTotalTime() ) + "]" )
+      self.model_.currentTime_ = -1
       self.profileRunner_.stop()
-    
+
+    print( "Current time is : " + str( self.model_.currentTime_ ) + " seconds" )
     # Write data to hw controller
     # todo
     
     self.render()
+    self.model_.currentTime_ += interval
     
 
   def main( self, canvas ) :
@@ -205,7 +212,6 @@ class Renderer( object ) :
         data = np.array( ( dataset.time_,
                            dataset.value_ ) )
         incy = ( dataset.max_ - dataset.min_ ) / self.valueSubdivisions_
-        print( "Dataset " + str( dataset.name_ ) + " between " + str( dataset.min_ ) + " and " + str( dataset.max_ ) + " at resolution " + str( incy ) )
         
         self.mainWidgets_.widgets_[ "PreviewGraph" ].drawData(
                                                               data,
@@ -245,7 +251,6 @@ class Renderer( object ) :
         self.dataCursorPix_ = -1
 
       else :
-        print( "Doing fancy" )
         for name, widget in self.dataWidgets_.widgets_.items() :
           widget.unhide()
           if "Data" in name :
@@ -321,10 +326,10 @@ class Renderer( object ) :
       if ( ( self.configWidgets_.widgetsList_[i].centerY_ < self.mainWidgets_.widgets_[ "ConfigsBar" ].y_ ) or
            ( self.configWidgets_.widgetsList_[i].centerY_ > ( self.mainWidgets_.widgets_[ "ConfigsBar" ].y_ + self.mainWidgets_.widgets_[ "ConfigsBar" ].height_ ) ) ) :
         self.configWidgets_.widgetsList_[i].hide()
-        print( "Hiding " + self.configWidgets_.widgetsList_[i].name_ )
+        
       else : # within bounds
         self.configWidgets_.widgetsList_[i].unhide()
-        print( "Showing " + self.configWidgets_.widgetsList_[i].name_ ) 
+        
 
       
   def checkLeaveConfigs( self, direction ) :
@@ -354,6 +359,7 @@ class Renderer( object ) :
                                 )
     
     name = config.name_ + " - " + str( len( self.configWidgets_.widgetsList_ ) )
+    cfgWidget.addInput( self.profileRunner_.start )
     print( "Adding config widget : " + name ) 
     self.configWidgets_.addWidget( name, cfgWidget )
 
@@ -376,7 +382,7 @@ class Renderer( object ) :
       
   def render( self ) :
 
-    with self.hwctrl_.frameReg_ :
+    with self.frameReg_ :
       self.baseCanvas_ = luma_render.canvas( self.hwctrl_.device_, dither=True )
       with  self.baseCanvas_ as canvas :
         self.contexts_[ self.currentContext_ ][0]( canvas )
@@ -473,7 +479,7 @@ class DataModel( object ) :
     # Return longest time
     totalTime = 0
     for name, dataset in currentConfig.datasets_.items() :
-      totatlTime = np.maximum( dataset.time_, totalTime )
+      totalTime = np.maximum( np.max( dataset.time_ ), totalTime )
 
     return totalTime
 
