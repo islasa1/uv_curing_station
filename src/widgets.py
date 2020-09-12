@@ -153,7 +153,7 @@ class TextBox( Widget ):
   def __init__( self, text=None, color="green",  textPosX=0, textPosY=0, x=0, y=0, width=1, height=1, font=None, borderpx=2, aligned="left", spacing=4 ) :
     super(TextBox, self).__init__( x, y, width, height )
     self.borderpx_  = borderpx
-    self.text_      = text or "Hello World!"
+    self.text_      = text or ""
     self.textColor_ = color
     self.font_      = font
     self.textPosX_  = textPosX
@@ -256,6 +256,9 @@ class Graph(Widget):
     interpRight    = False
     interpRightIdx = 0
 
+    # Hotfix
+    # Need to fix a bug where if no points are in sight we need to lerp to a line
+    if dataToDrawX.shape[0] == 0 : return 
 
     if self.dataStart_ != dataToDrawX[0] : 
       interpLeftIdx = np.where( indicesToDraw == True )[0][0] - 1
