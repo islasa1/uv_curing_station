@@ -1,5 +1,6 @@
 import PIL
 import numpy as np
+from inspect import signature
 
 class Widget( object ) :
   def __init__( self, x=0, y=0, width=1, height=1 ):
@@ -100,7 +101,7 @@ class Widget( object ) :
     self.onInput_.append( handler )
     
   def onInput( self, direction ) :
-    print( "Processing onInput( " + direction + " ) for Widget " + self.name_ )
+    # print( "Processing onInput( " + direction + " ) for Widget " + self.name_ )
 
     # Check for defocus before handling state change
     if self.defocusCondition_ is None or self.defocusCondition_( direction ) :
@@ -109,14 +110,21 @@ class Widget( object ) :
       
     if len( self.onInput_ ) > 0 :
       for handler in self.onInput_ :
-        handler( direction )
+        sig = signature( handler )
+        if len( sig.parameters ) > 0 :
+          handler( direction )
+        else :
+          handler( )
       
     
       
   def swapCurrentColors( self, fg, bg ) :
     self.currentFg_ = fg
     self.currentBg_ = bg      
-      
+
+  def isSelected( self ) :
+    return self.selected_
+  
   def select( self ) :
     self.selected_ = True
     # swap colors
@@ -153,7 +161,7 @@ class TextBox( Widget ):
   def __init__( self, text=None, color="green",  textPosX=0, textPosY=0, x=0, y=0, width=1, height=1, font=None, borderpx=2, aligned="left", spacing=4 ) :
     super(TextBox, self).__init__( x, y, width, height )
     self.borderpx_  = borderpx
-    self.text_      = text or "Hello World!"
+    self.text_      = text or ""
     self.textColor_ = color
     self.font_      = font
     self.textPosX_  = textPosX
@@ -256,6 +264,9 @@ class Graph(Widget):
     interpRight    = False
     interpRightIdx = 0
 
+    # Hotfix
+    # Need to fix a bug where if no points are in sight we need to lerp to a line
+    if dataToDrawX.shape[0] == 0 : return 
 
     if self.dataStart_ != dataToDrawX[0] : 
       interpLeftIdx = np.where( indicesToDraw == True )[0][0] - 1
@@ -307,10 +318,10 @@ class WidgetManager( Widget ) :
     self.adjustCentroid_ = True
 
   def onInput( self, direction ) :
-    print( "Inside of manager : " + self.name_ )
+    # print( "Inside of manager : " + self.name_ )
     if self.currentWidget_ is None :
       self.currentWidget_ = self.defaultWidget_
-      if self.currentWidget_ is None :
+      if self.currentWidget_ is not None :
         self.currentWidget_.select()
     else :
             
@@ -347,7 +358,7 @@ class WidgetManager( Widget ) :
         # Widget has focus from main control method, go to its handler
         self.currentWidget_.onInput( direction )
 
-    print( "Current Widget for " + self.name_ + " is " + self.currentWidget_.name_ + " ( has focus : " + str( self.currentWidget_.hasFocus() ) + ")" )
+    # print( "Current Widget for " + self.name_ + " is " + self.currentWidget_.name_ + " ( has focus : " + str( self.currentWidget_.hasFocus() ) + " / is selected " + str( self.currentWidget_.isSelected() ) + ") " )
 
   def addWidget( self, name, widget, canSelect=True ) :
     if self.defaultWidget_ is None : self.defaultWidget_ = widget
