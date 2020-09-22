@@ -8,6 +8,11 @@ import luma.core.sprite_system as luma_sprite
 from PIL import ImageFont, ImageColor, Image
 import multitimer
 
+USE_BLYNK=True
+
+if USE_BLYNK :
+  import blynklib
+
 import sys
 import time
 import signal
@@ -513,6 +518,29 @@ class DataModel( object ) :
       currentData[ name ] = np.interp( self.currentTime_, dataset.time_, dataset.value_ )
 
     return currentData
+
+class BlynkInterface( object ) :
+  def __init__( self, auth, renderer, server=None ) :
+    
+    self.renderer_ = renderer
+    # No SSL, so 8080
+    self.blynk_    = blynklib.Blynk( auth, server=server or "blynk-cloud.com", port=8080 )
+    self.com_      = True
+    self.blynkthread_ = multitimer.MultiTimer( interval=0.1, function=self.communicate, runonstart=True )
+
+  def communicate( self ) :
+    while self.com_ :
+      self.blynk_.run()
+      
+  def run( self ) :
+    self.blynkthread_.start()
+    print( "Waiting for server to start..." )
+    time.sleep( 1 )
+    self.blynk_.notify( "BAWCS Online" )
+
+  def stop( self ) :
+    self.blynk_.notify( "BAWCS Offline" )
+    self.blynkthread_.stop()
   
 if __name__ == '__main__':
   
@@ -526,6 +554,11 @@ if __name__ == '__main__':
     
     renderer = Renderer( hwctrl, dataModel )
     print( "Renderer Set Up" )
+
+    if USE_BLYNK :
+      blynkint = BlynkInterface( open( "cred/.secrets" ).read(), renderer, "192.168.0.10" )
+      blynkint.run()
+      
 
     # Disable luma's stupid fucking cleanup since we can't configure it
     c = Capture()
