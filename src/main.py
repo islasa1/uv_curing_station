@@ -22,6 +22,8 @@ import atexit
 import json
 import glob
 import threading
+from datetime import datetime
+from enum import Enum
 
 # Shield
 #KEY_UP_PIN     = 6
@@ -39,6 +41,19 @@ KEY_LEFT_PIN   = 19
 KEY_RIGHT_PIN  =  6
 KEY_PRESS_PIN  = 13
 
+ZAXIS_RST  = 0 
+
+ZAXIS_DIR  = 0
+ZAXIS_STEP = 0
+ZAXIS_M1   = 0
+ZAXIS_M2   = 0
+ZAXIS_M3   = 0
+ZAXIS_SLP  = 0
+
+FAN_CTRL   = 15
+UV_CTRL    = 14
+
+
 class Capture:
   def __init__(self):
     self.captured = []
@@ -46,9 +61,15 @@ class Capture:
     self.captured.append(other)
     return False
 
+# What State the hardware control is in
+class ControlModes( Enum ) :
+  AUTO_RUN = 0
+  MANUAL   = 1
+  MANUAL_TIME = 2
 
 class HardwareController( object ) :
   def __init__( self ) :
+    self.controlMode_ = ControlModes.AUTO_RUN
     self.spi_    = luma_spi(
                             port=0,
                             device=0,
@@ -81,6 +102,11 @@ class HardwareController( object ) :
     self.buttonMap_ = {}
     for key, value in self.buttons_.items() :
       self.buttonMap_[ value.pin.number ] = key
+
+    self.outputs_ = {}
+    #self.outputs_[ "zaxis" ] = {}
+    #self.outputs_[ "zaxis" ][ "ctrl" ] = gz.PhaseEnableMotor(
+    self.outputs_[ "fan" ] = gz.PWMOutputDevice( FAN_CTRL )
 
   
 
@@ -199,7 +225,15 @@ class Renderer( object ) :
 
     #print( "Current time is : " + str( self.model_.currentTime_ ) + " seconds" )
     # Write data to hw controller
-    # todo
+    currentData   = self.model_.getCurrentData( )
+                   
+    for name, value in currentData.items() :      
+      if name == "fan" :
+        self.hwctrl_.outputs_[ name ].value = value
+      elif name == "lights" :
+        pass
+      elif name == "zaxis" :
+        pass
     
     self.render()
     self.model_.currentTime_ += interval
@@ -389,13 +423,16 @@ class Renderer( object ) :
       self.mainWidgets_.widgets_[ "Resolution" ].text_ = "Timescale\n" + str( self.model_.timeResolution_ ) + " sec"
     
   def buttonPress( self, button ) :
-    pressType = self.hwctrl_.buttonMap_[ button.pin.number ] 
-    # print( "You pressed " + pressType )
 
-    # Get the current context widget manager
-    self.contexts_[ self.currentContext_ ][1].onInput( pressType )
-
-    self.render()
+    pressType = self.hwctrl_.buttonMap_[ button.pin.number ]
+    
+    if self.hwctrl_.controlMode_ == ControlModes.AUTO_RUN and pressType == "select" :
+      print( "Hardware is manual mode, user cannot select" )
+    else :
+      # Get the current context widget manager
+      self.contexts_[ self.currentContext_ ][1].onInput( pressType )
+      self.render()
+    
 
   def quit( self ) :
     return self.quit_
@@ -525,8 +562,107 @@ class BlynkInterface( object ) :
     self.renderer_ = renderer
     # No SSL, so 8080
     self.blynk_    = blynklib.Blynk( auth, server=server or "blynk-cloud.com", port=8080 )
+    # WHYYYYYY
+    self.blynk_.VPIN_MAX_NUM = 255
+    
     self.com_      = True
     self.blynkthread_ = multitimer.MultiTimer( interval=0.1, function=self.communicate, runonstart=True )
+
+    # We will keep track of whether to ignore writes of zero - this is to filter out button taps
+    # that write zero out as a signal
+    self.pins_ = {}
+    self.pins_[ "main_terminal" ] = { "vnum" : 255, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "settings_terminal" ] = { "vnum" : 254, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_terminal" ] = { "vnum" : 253, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "poweroff" ] = { "vnum" : 252, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "cpu_usage"       ] = { "vnum" : 251, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "cpu_temperature" ] = { "vnum" : 250, "value" : 0, "ignoreZero" : False }
+
+    # Manual Mode
+    self.pins_[ "zaxis"            ] = { "vnum" : 0, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_zaxis_inc" ] = { "vnum" : 3, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_zaxis_rst" ] = { "vnum" : 6, "value" : 0, "ignoreZero" : True }
+
+    self.pins_[ "fan"            ] = { "vnum" : 1, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_fan_inc" ] = { "vnum" : 4, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_fan_rst" ] = { "vnum" : 7, "value" : 0, "ignoreZero" : True }
+    
+    self.pins_[ "uvled"            ] = { "vnum" : 2, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_uvled_inc" ] = { "vnum" : 5, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_uvled_rst" ] = { "vnum" : 8, "value" : 0, "ignoreZero" : True }
+
+    self.pins_[ "manual_rst_all"     ] = { "vnum" :  9, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_start_timer" ] = { "vnum" : 10, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_stop_timer" ] = { "vnum" : 51, "value" : 0, "ignoreZero" : False }
+    
+    self.pins_[ "manual_hardware_preview" ] = { "vnum" : 11, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_mode"      ] = { "vnum" : 12, "value" : 0, "ignoreZero" : False }
+
+    self.pins_[ "manual_time_rem" ] = { "vnum" : 13, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_time_sec" ] = { "vnum" : 14, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_time_min" ] = { "vnum" : 15, "value" : 0, "ignoreZero" : False }
+
+    self.pins_[ "active_profile" ] = { "vnum" : 17, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "auto_mode"      ] = { "vnum" : 16, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "auto_runner"    ] = { "vnum" : 18, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "active_data"    ] = { "vnum" : 19, "value" : 0, "ignoreZero" : False }
+    
+    self.pins_[ "edit_profile"          ] = { "vnum" : 20, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_resolution"       ] = { "vnum" : 21, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_hardware_preview" ] = { "vnum" : 22, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_profile_preview"  ] = { "vnum" : 23, "value" : 0, "ignoreZero" : False }
+
+    self.pins_[ "edit_zaxis_text"  ] = { "vnum" : 24, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_fan_text"    ] = { "vnum" : 25, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_uvled_text"  ] = { "vnum" : 26, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_time_text"   ] = { "vnum" : 27, "value" : 0, "ignoreZero" : False }
+    
+
+    self.pins_[ "edit_data"    ] = { "vnum" : 28, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_value"   ] = { "vnum" : 29, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_time "   ] = { "vnum" : 30, "value" : 0, "ignoreZero" : False }
+
+    self.pins_[ "edit_run_preview"  ] = { "vnum" : 31, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "edit_point"    ] = { "vnum" : 32, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_add"      ] = { "vnum" : 33, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "edit_delete_point" ] = { "vnum" : 34, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "edit_save"     ] = { "vnum" : 35, "value" : 0, "ignoreZero" : True }
+
+    self.pins_[ "edit_zaxis_disabled"   ] = { "vnum" : 36, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_fan_disabled"     ] = { "vnum" : 37, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_uvled_disabled"   ] = { "vnum" : 38, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_profile_name" ] = { "vnum" : 39, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_filename"     ] = { "vnum" : 40, "value" : 0, "ignoreZero" : False }
+
+    self.pins_[ "edit_duplicate"      ] = { "vnum" : 41, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "edit_new_profile"    ] = { "vnum" : 42, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "edit_delete_profile" ] = { "vnum" : 43, "value" : 0, "ignoreZero" : True }
+
+    self.pins_[ "settings_global_zaxis_disabled" ] = { "vnum" : 44, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "settings_global_fan_disabled"   ] = { "vnum" : 45, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "settings_global_uvled_disabled" ] = { "vnum" : 46, "value" : 0, "ignoreZero" : False }
+
+    self.pins_[ "settings_manual_half_notify_disabled" ] = { "vnum" : 47, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "settings_manual_full_notify_disabled" ] = { "vnum" : 48, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "settings_auto_half_notify_disabled" ] = { "vnum" : 49, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "settings_auto_full_notify_disabled" ] = { "vnum" : 50, "value" : 0, "ignoreZero" : False }
+    
+    
+
+    
+    
+
+    self.virtualPinMap_ = {}
+    for key, value in self.pins_.items() :
+      self.virtualPinMap_[ value[ "vnum" ] ] = { "name" : key } 
+    
+    print( "Manual decoration for Blynk Server..." )
+    blynklib.Blynk.handle_event( self.blynk_, "connect")( self.connect_handler )
+    blynklib.Blynk.handle_event( self.blynk_, 'internal_rtc' )( self.rtc_handler )
+
+    blynklib.Blynk.handle_event( self.blynk_, 'write V*' )( self.pinwrite_handler )
+    # blynklib.Blynk.handle_event( self.blynk_, 'write *' )( self.pinwrite_handler )
+
 
   def communicate( self ) :
     while self.com_ :
@@ -535,12 +671,43 @@ class BlynkInterface( object ) :
   def run( self ) :
     self.blynkthread_.start()
     print( "Waiting for server to start..." )
-    time.sleep( 1 )
-    self.blynk_.notify( "BAWCS Online" )
+        
 
   def stop( self ) :
     self.blynk_.notify( "BAWCS Offline" )
     self.blynkthread_.stop()
+
+  def connect_handler( self ):
+    self.blynk_.internal("rtc", "sync")
+    self.blynk_.notify( "BAWCS Online" )
+    msg  = "\n\n\nHello World!\n"
+    msg += "Welcome to BAWCS\n"
+    msg += "Your one-stop-shop\n"
+    msg += "for :\n"
+    msg += "Better\n"
+    msg += "Automated\n"
+    msg += "Washing and\n"
+    msg += "Curing\n"
+    msg += "Station\n\n"
+    msg += "- Anthony Islas"
+    self.blynk_.virtual_write( self.pins_[ "main_terminal" ], msg + "\n" )
+    
+    print( "RTC sync request was sent" )
+
+  # From https://github.com/blynkkk/lib-python/blob/master/examples/10_rtc_sync.py
+  def rtc_handler( self, rtc_data_list ) :
+    
+    hr_rtc_value = datetime.utcfromtimestamp( int( rtc_data_list[0] ) ).strftime( '%Y-%m-%d %H:%M:%S' )
+    print('Raw RTC value from server: {}'.format( rtc_data_list[0] ) )
+    print('Human readable RTC value: {}'.format( hr_rtc_value ) )
+  
+
+  def pinwrite_handler( self, pin, value ) :
+    if pin in self.virtualPinMap_ :
+      if ( value != 0 and 0 not in value and '0' not in value ) or not self.pins_[ self.virtualPinMap_[pin]["name"] ][ "ignoreZero" ] :
+        print( "You modified " + str( pin ) + " to value " + str( value ) + " which is " + self.virtualPinMap_[pin]["name"] )
+      else :
+        print( "Fallthrough... we ignored " + str( pin ) + " which is " + self.virtualPinMap_[pin]["name"] )
   
 if __name__ == '__main__':
   
