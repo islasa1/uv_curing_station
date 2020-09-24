@@ -71,8 +71,7 @@ class ControlModes( Enum ) :
   
 class HardwareController( object ) :
   def __init__( self ) :
-    self.controlMode_ = ControlModes.AUTO_RUN
-    
+        
     self.spi_    = luma_spi(
                             port=0,
                             device=0,
@@ -455,7 +454,7 @@ class Renderer( object ) :
 
     pressType = self.hwctrl_.buttonMap_[ button.pin.number ]
     
-    if self.hwctrl_.controlMode_ == ControlModes.AUTO_RUN and pressType == "select" :
+    if self.model_.controlMode_ == ControlModes.AUTO_RUN and pressType == "select" :
       print( "Hardware is manual mode, user cannot select" )
     else :
       # Get the current context widget manager
@@ -527,7 +526,8 @@ class DataModel( object ) :
   def __init__( self ) :
     # Config data
     self.configs_ = []
-    
+    self.controlMode_ = ControlModes.AUTO_RUN
+
     # Time graph resolution in seconds
     self.timeResolution_ = 30
 
@@ -536,6 +536,9 @@ class DataModel( object ) :
 
     # Current time into config in seconds
     self.currentTime_ = -1
+
+    self.currenData_ = { "zaxis" : 0, "fan" : 0, "lights" : 0 }
+    self.currentTotalTime_ = 0
 
     # where to load from
     self.dataFolder_ = "configs/"
@@ -572,18 +575,24 @@ class DataModel( object ) :
 
     return totalTime
 
-  def getCurrentData( self ) :
-    currentConfig = self.getCurrentConfig()
+  def getCurrentData( self, data=None ) :
 
-    if currentConfig is None : return None
-      
-    # Return interpolated data for current time in order of
-    # { dataset : value }
-    currentData = {}
-    for name, dataset in currentConfig.datasets_.items() :
-      currentData[ name ] = np.interp( self.currentTime_, dataset.time_, dataset.value_ )
+    if self.controlMode_ == ControlModes.AUTO_RUN :
+      currentConfig = self.getCurrentConfig()
+      if currentConfig is None : return None
+        
+      if data is None :
+        # Return interpolated data for current time in order of
+        # { dataset : value }
+        for name, dataset in currentConfig.datasets_.items() :
+          self.currentData_[ name ] = np.interp( self.currentTime_, dataset.time_, dataset.value_ )
+      else :
+        self.currentData_[ name ] = np.interp( self.currentTime_, currentConfig.datasets_[ data ].time_, currentConfig.datasets_[ data ].value_ )
 
-    return currentData
+    if data is None :
+      return self.currentData_
+    else :
+      return self.currentData_[ name ]
 
 class BlynkInterface( object ) :
   def __init__( self, auth, server=None ) :
@@ -713,18 +722,260 @@ class BlynkInterface( object ) :
     sys.stdout = oldstdout
     self._print( output )
 
+  def syncAll( self ) :
+    for key, value in self.pins_.items() :
+      if key == "main_terminal" :
+        self.pins_[ "main_terminal" ]["value"] = ""
+      elif key == "settings_terminal" :
+        self.pins_[ "settings_terminal" ]["value"] = ""
+      elif key == "edit_terminal" :
+        self.pins_[ "edit_terminal" ]["value"] = ""
+      elif key == "poweroff" :
+        self.pins_[ "poweroff" ]["value"] = 0
+      elif key == "cpu_usage" :
+        self.pins_[ "cpu_usage"       ]["value"] = str( os.popen("top -n1 | awk '/Cpu\(s\):/ {print $2}'").readline() )
+      elif key == "cpu_temperature" :
+        self.pins_[ "cpu_temperature" ]["value"] = gz.CPUTemperature().temperature
+      elif key == "zaxis" :
+        self.pins_[ "zaxis"            ]["value"] = self.renderer_.model_.getCurrentData( "zaxis" )
+      # elif key == "manual_zaxis_inc" :
+      #   self.pins_[ "manual_zaxis_inc" ]["value"] = 0
+      # elif key == "manual_zaxis_rst" :
+      #   self.pins_[ "manual_zaxis_rst" ]["value"] = 0
+      elif key == "fan" :
+        self.pins_[ "fan"            ]["value"] = self.renderer_.model_.getCurrentData( "fan" )
+      # elif key == "manual_fan_inc" :
+      #   self.pins_[ "manual_fan_inc" ]["value"] = 
+      # elif key == "manual_fan_rst" :
+      #   self.pins_[ "manual_fan_rst" ]["value"] = 
+      elif key == "uvled" :
+        self.pins_[ "uvled"            ]["value"] = self.renderer_.model_.getCurrentData( "lights" )
+      # elif key == "manual_uvled_inc" :
+      #   self.pins_[ "manual_uvled_inc" ]["value"] = 
+      # elif key == "manual_uvled_rst" :
+      #   self.pins_[ "manual_uvled_rst" ]["value"] = 
+      elif key == "manual_rst_all" :
+        self.pins_[ "manual_rst_all"     ]["value"] = 0
+      elif key == "manual_start_timer" :
+        self.pins_[ "manual_start_timer" ]["value"] = 0
+      elif key == "manual_stop_timer" :
+        self.pins_[ "manual_stop_timer" ]["value"] = 0
+      elif key == "manual_hardware_preview" :
+        self.pins_[ "manual_hardware_preview" ]["value"] = 0
+      elif key == "manual_mode" :
+        self.pins_[ "manual_mode"      ]["value"] = 0
+      elif key == "manual_time_rem" :
+        self.pins_[ "manual_time_rem" ]["value"] = 0
+      elif key == "manual_time_sec" :
+        self.pins_[ "manual_time_sec" ]["value"] = 0
+      elif key == "manual_time_min" :
+        self.pins_[ "manual_time_min" ]["value"] = 0
+      elif key == "active_profile" :
+        self.pins_[ "active_profile" ]["value"] = 0
+      elif key == "auto_mode" :
+        self.pins_[ "auto_mode"      ]["value"] = 0
+      elif key == "auto_runner" :
+        self.pins_[ "auto_runner"    ]["value"] = 0
+      elif key == "active_data" :
+        self.pins_[ "active_data"    ]["value"] = 0
+      elif key == "edit_profile" :
+        self.pins_[ "edit_profile"          ]["value"] = 0
+      elif key == "edit_resolution" :
+        self.pins_[ "edit_resolution"       ]["value"] = 0
+      # elif key == "edit_hardware_preview" :
+      #   self.pins_[ "edit_hardware_preview" ]["value"] = 
+      # elif key == "edit_profile_preview" :
+      #   self.pins_[ "edit_profile_preview"  ]["value"] = 
+      elif key == "edit_zaxis_text" :
+        self.pins_[ "edit_zaxis_text"  ]["value"] = 0
+      elif key == "edit_fan_text" :
+        self.pins_[ "edit_fan_text"    ]["value"] = 0
+      elif key == "edit_uvled_text" :
+        self.pins_[ "edit_uvled_text"  ]["value"] = 0
+      elif key == "edit_time_text" :
+        self.pins_[ "edit_time_text"   ]["value"] = 0
+      elif key == "edit_data" :
+        self.pins_[ "edit_data"    ]["value"] = 0
+      elif key == "edit_value" :
+        self.pins_[ "edit_value"   ]["value"] = 0
+      elif key == "edit_time " :
+        self.pins_[ "edit_time "   ]["value"] = 0
+      elif key == "edit_run_preview" :
+        self.pins_[ "edit_run_preview"  ]["value"] = 0
+      elif key == "edit_point" :
+        self.pins_[ "edit_point"    ]["value"] = 0
+      elif key == "edit_add" :
+        self.pins_[ "edit_add"      ]["value"] = 0
+      elif key == "edit_delete_point" :
+        self.pins_[ "edit_delete_point" ]["value"] = 0
+      elif key == "edit_save" :
+        self.pins_[ "edit_save"     ]["value"] = 0
+      elif key == "edit_zaxis_disabled" :
+        self.pins_[ "edit_zaxis_disabled"   ]["value"] = 0
+      elif key == "edit_fan_disabled" :
+        self.pins_[ "edit_fan_disabled"     ]["value"] = 0
+      elif key == "edit_uvled_disabled" :
+        self.pins_[ "edit_uvled_disabled"   ]["value"] = 0
+      elif key == "edit_profile_name" :
+        self.pins_[ "edit_profile_name" ]["value"] = self.renderer_.model_.getCurrentConfig().name_
+      elif key == "edit_filename" :
+        self.pins_[ "edit_filename"     ]["value"] = self.renderer_.model_.getCurrentConfig().filename_
+      elif key == "edit_duplicate" :
+        self.pins_[ "edit_duplicate"      ]["value"] = 0
+      elif key == "edit_new_profile" :
+        self.pins_[ "edit_new_profile"    ]["value"] = 0
+      elif key == "edit_delete_profile" :
+        self.pins_[ "edit_delete_profile" ]["value"] = 0
+      elif key == "settings_global_zaxis_disabled" :
+        self.pins_[ "settings_global_zaxis_disabled" ]["value"] = 0
+      elif key == "settings_global_fan_disabled" :
+        self.pins_[ "settings_global_fan_disabled"   ]["value"] = 0
+      elif key == "settings_global_uvled_disabled" :
+        self.pins_[ "settings_global_uvled_disabled" ]["value"] = 0
+      elif key == "settings_manual_half_notify_disabled" :
+        self.pins_[ "settings_manual_half_notify_disabled" ]["value"] = 0
+      elif key == "settings_manual_full_notify_disabled" :
+        self.pins_[ "settings_manual_full_notify_disabled" ]["value"] = 0
+      elif key == "settings_auto_half_notify_disabled" :
+        self.pins_[ "settings_auto_half_notify_disabled" ]["value"] = 0
+      elif key == "settings_auto_full_notify_disabled" :
+        self.pins_[ "settings_auto_full_notify_disabled" ]["value"] = 0
+
+      self.blynk_.virtual_write( self.pins_[key][ "vnum" ], self.pins_[key]["value"] )
+
   def main_handler( self, pin ) :
     print( "In main handler via pin " + str( pin ) + " called " + self.virtualPinMap_[ pin ][ "name" ] )
 
-    if self.virtualPinMap_[pin]["name"] == 
+    # elif self.virtualPinMap_[pin]["name"] == "main_terminal" :
+    #   self.pins_[ "main_terminal" ]
+    if self.virtualPinMap_[pin]["name"] == "zaxis" :
+      if self.renderer_.model_.controlMode_ != ControlModes.AUTO_RUN :
+        self.renderer_.model_.currenData_[ "zaxis" ] = self.pins_[ "zaxis" ][ "value" ]
+      else :
+        # Shoot back to user and revert
+        print( "ERROR: Not in manual mode. Please switch to manual mode to change values..." )
+        self.blynk_.virtual_write( pin, self.renderer_.model_.currenData_[ "zaxis" ] )
 
+    elif self.virtualPinMap_[pin]["name"] == "manual_zaxis_inc" :
+      self.pins_[ "manual_zaxis_inc" ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_zaxis_rst" :
+      self.pins_[ "manual_zaxis_rst" ]
+    elif self.virtualPinMap_[pin]["name"] == "fan" :
+      self.pins_[ "fan"            ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_fan_inc" :
+      self.pins_[ "manual_fan_inc" ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_fan_rst" :
+      self.pins_[ "manual_fan_rst" ]
+    elif self.virtualPinMap_[pin]["name"] == "uvled" :
+      self.pins_[ "uvled"            ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_uvled_inc" :
+      self.pins_[ "manual_uvled_inc" ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_uvled_rst" :
+      self.pins_[ "manual_uvled_rst" ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_rst_all" :
+      self.pins_[ "manual_rst_all"     ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_start_timer" :
+      self.pins_[ "manual_start_timer" ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_stop_timer" :
+      self.pins_[ "manual_stop_timer" ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_hardware_preview" :
+      self.pins_[ "manual_hardware_preview" ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_mode" :
+      self.pins_[ "manual_mode"      ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_time_rem" :
+      self.pins_[ "manual_time_rem" ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_time_sec" :
+      self.pins_[ "manual_time_sec" ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_time_min" :
+      self.pins_[ "manual_time_min" ]
+    elif self.virtualPinMap_[pin]["name"] == "active_profile" :
+      self.pins_[ "active_profile" ]
+    elif self.virtualPinMap_[pin]["name"] == "auto_mode" :
+      self.pins_[ "auto_mode"      ]
+    elif self.virtualPinMap_[pin]["name"] == "auto_runner" :
+      self.pins_[ "auto_runner"    ]
+    elif self.virtualPinMap_[pin]["name"] == "active_data" :
+      self.pins_[ "active_data"    ]
+    
   def edit_handler( self, pin ) :
     print( "In edit handler via pin " + str( pin ) + " called " + self.virtualPinMap_[ pin ][ "name" ] )
+
+    if self.virtualPinMap_[pin]["name"] == "edit_terminal" :
+      self.pins_[ "edit_terminal" ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_profile" :
+      self.pins_[ "edit_profile"          ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_resolution" :
+      self.pins_[ "edit_resolution"       ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_hardware_preview" :
+      self.pins_[ "edit_hardware_preview" ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_profile_preview" :
+      self.pins_[ "edit_profile_preview"  ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_zaxis_text" :
+      self.pins_[ "edit_zaxis_text"  ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_fan_text" :
+      self.pins_[ "edit_fan_text"    ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_uvled_text" :
+      self.pins_[ "edit_uvled_text"  ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_time_text" :
+      self.pins_[ "edit_time_text"   ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_data" :
+      self.pins_[ "edit_data"    ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_value" :
+      self.pins_[ "edit_value"   ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_time " :
+      self.pins_[ "edit_time "   ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_run_preview" :
+      self.pins_[ "edit_run_preview"  ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_point" :
+      self.pins_[ "edit_point"    ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_add" :
+      self.pins_[ "edit_add"      ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_delete_point" :
+      self.pins_[ "edit_delete_point" ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_save" :
+      self.pins_[ "edit_save"     ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_zaxis_disabled" :
+      self.pins_[ "edit_zaxis_disabled"   ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_fan_disabled" :
+      self.pins_[ "edit_fan_disabled"     ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_uvled_disabled" :
+      self.pins_[ "edit_uvled_disabled"   ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_profile_name" :
+      self.pins_[ "edit_profile_name" ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_filename" :
+      self.pins_[ "edit_filename"     ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_duplicate" :
+      self.pins_[ "edit_duplicate"      ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_new_profile" :
+      self.pins_[ "edit_new_profile"    ]
+    elif self.virtualPinMap_[pin]["name"] == "edit_delete_profile" :
+      self.pins_[ "edit_delete_profile" ]
 
   def settings_handler( self, pin ) :
     print( "In settings handler via pin " + str( pin ) + " called " + self.virtualPinMap_[ pin ][ "name" ] )
 
-
+    if self.virtualPinMap_[pin]["name"] == "settings_terminal" :
+      self.pins_[ "settings_terminal" ]
+    elif self.virtualPinMap_[pin]["name"] == "poweroff" :
+      self.pins_[ "poweroff" ]
+    elif self.virtualPinMap_[pin]["name"] == "cpu_usage" :
+      self.pins_[ "cpu_usage"       ]
+    elif self.virtualPinMap_[pin]["name"] == "cpu_temperature" :
+      self.pins_[ "cpu_temperature" ]
+    elif self.virtualPinMap_[pin]["name"] == "settings_global_zaxis_disabled" :
+      self.pins_[ "settings_global_zaxis_disabled" ]
+    elif self.virtualPinMap_[pin]["name"] == "settings_global_fan_disabled" :
+      self.pins_[ "settings_global_fan_disabled"   ]
+    elif self.virtualPinMap_[pin]["name"] == "settings_global_uvled_disabled" :
+      self.pins_[ "settings_global_uvled_disabled" ]
+    elif self.virtualPinMap_[pin]["name"] == "settings_manual_half_notify_disabled" :
+      self.pins_[ "settings_manual_half_notify_disabled" ]
+    elif self.virtualPinMap_[pin]["name"] == "settings_manual_full_notify_disabled" :
+      self.pins_[ "settings_manual_full_notify_disabled" ]
+    elif self.virtualPinMap_[pin]["name"] == "settings_auto_half_notify_disabled" :
+      self.pins_[ "settings_auto_half_notify_disabled" ]
+    elif self.virtualPinMap_[pin]["name"] == "settings_auto_full_notify_disabled" :
+      self.pins_[ "settings_auto_full_notify_disabled" ]
       
   def communicate( self ) :
     while self.com_ :
