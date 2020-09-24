@@ -7,6 +7,7 @@ import luma.core.render as luma_render
 import luma.core.sprite_system as luma_sprite
 from PIL import ImageFont, ImageColor, Image
 import multitimer
+import widgets
 
 USE_BLYNK=True
 
@@ -14,9 +15,10 @@ if USE_BLYNK :
   import blynklib
 
 import sys
+import io
 import time
 import signal
-import widgets
+import builtins
 import numpy as np
 import atexit
 import json
@@ -66,10 +68,11 @@ class ControlModes( Enum ) :
   AUTO_RUN = 0
   MANUAL   = 1
   MANUAL_TIME = 2
-
+  
 class HardwareController( object ) :
   def __init__( self ) :
     self.controlMode_ = ControlModes.AUTO_RUN
+    
     self.spi_    = luma_spi(
                             port=0,
                             device=0,
@@ -115,9 +118,10 @@ class Renderer( object ) :
     self.hwctrl_ = ctrl
     self.model_  = model
     self.updateHz_ = 30
+    self.runningTimer_ = False
     self.manualTimeAdjust_ = 2.5 # To dial in actual time stepping, this isn't fancy ok it barely works
     # We are going to make it think it's running 2x faster, as it is slow af
-    self.profileRunner_ = multitimer.MultiTimer( interval=1.0/self.updateHz_, function=self.runProfile, kwargs={ 'interval' : self.manualTimeAdjust_/self.updateHz_ }, runonstart=True )
+    self.timer_ = multitimer.MultiTimer( interval=1.0/self.updateHz_, function=self.runTimer, kwargs={ 'interval' : self.manualTimeAdjust_/self.updateHz_ }, runonstart=True )
     self.frameReg_ = luma_sprite.framerate_regulator( fps=self.updateHz_ )
     self.font_   = ImageFont.truetype( "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=8 )
     self.smallfont_   = ImageFont.truetype( "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", size=7 )
@@ -145,17 +149,17 @@ class Renderer( object ) :
     #self.mainWidgets_.addWidget( "Hardware",         widgets.TextBox( "Hardware", "darkgreen", 1, 5, 44,  0, 43, 16, self.font_, 1 ) )
     #self.mainWidgets_.addWidget( "Help",             widgets.TextBox( "Help",     "darkgreen", 10, 5, 88,  0, 40, 16, self.font_, 1 ) )
     self.mainWidgets_.addWidget( "ConfigsBar",       widgets.TextBox( "No\nConfigs\nLoaded", "darkgreen", 2, 5, 0, 0, 43, 128, self.font_, 2 ) )
-    self.mainWidgets_.addWidget( "Resolution",       widgets.TextBox( "Interval " + str( self.model_.timeResolution_ ) + " sec", "darkgreen", 2, 2, 44, 0, 84, 16, self.font_, 1, spacing=2 ), canSelect=False )
-    self.mainWidgets_.addWidget( "TimeAdjustUp",     widgets.TextBox( "^UP",   "lightblue", 2, 1, 128,  0, 31, 8, self.font_, 1, spacing=2 ) )
-    self.mainWidgets_.addWidget( "TimeAdjustDown",   widgets.TextBox( "vDOWN", "tomato",    2, 1, 128,   8, 31, 8, self.font_, 1, spacing=2 ) )
+    self.mainWidgets_.addWidget( "Resolution",       widgets.TextBox( "Interval " + str( self.model_.timeResolution_ ) + " sec", "darkgreen", 2, 2, 44, 0, 84, 17, self.font_, 1, spacing=2 ), canSelect=False )
+    self.mainWidgets_.addWidget( "TimeAdjustUp",     widgets.TextBox( "^UP",   "lightblue", 2, 1, 129,  0, 30, 8, self.font_, 1, spacing=2 ), takeImmediateInput=True )
+    self.mainWidgets_.addWidget( "TimeAdjustDown",   widgets.TextBox( "vDOWN", "tomato",    2, 1, 129,   9, 30, 8, self.font_, 1, spacing=2 ), takeImmediateInput=True )
     #self.mainWidgets_.addWidget( "InfoLabel",        widgets.TextBox( "For detailed info ->", "blue", 2, -1, 44, 38, 84, 6, self.smallfont_, 0 ), canSelect=False )
 
     # Still part of main widgets just a subcategory
     self.dataWidgets_ = widgets.WidgetManager()
-    self.dataWidgets_.addWidget( "Data_zaxis",       widgets.TextBox( "NO DATA", "blue", 0, 1,  44, 17, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
-    self.dataWidgets_.addWidget( "Data_fan",         widgets.TextBox( "NO DATA", "blue", 3, 1, 102, 17, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
-    self.dataWidgets_.addWidget( "Data_lights",      widgets.TextBox( "NO DATA", "blue", 0, 1,  44, 30, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
-    self.dataWidgets_.addWidget( "Data_time",        widgets.TextBox( "NO DATA", "blue", 3, 1, 102, 30, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
+    self.dataWidgets_.addWidget( "Data_zaxis",       widgets.TextBox( "NO DATA", "blue", 0, 1,  44, 18, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
+    self.dataWidgets_.addWidget( "Data_fan",         widgets.TextBox( "NO DATA", "blue", 3, 1, 102, 18, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
+    self.dataWidgets_.addWidget( "Data_lights",      widgets.TextBox( "NO DATA", "blue", 0, 1,  44, 31, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
+    self.dataWidgets_.addWidget( "Data_time",        widgets.TextBox( "NO DATA", "blue", 3, 1, 102, 31, 58, 12, self.font_, 0, spacing=0 ), canSelect=False )
     self.dataWidgets_.addWidget( "UV",               widgets.TextBox( "", "blue", 2, -1, 132, 113, 22, 9, self.smallfont_, 0 ), canSelect=False )
     self.dataWidgets_.addWidget( "Fan",              widgets.TextBox( "", "blue", 2, -1, 131, 105, 24, 3, self.smallfont_, 0 ), canSelect=False )
 
@@ -213,15 +217,13 @@ class Renderer( object ) :
     self.contexts_ = {}
     self.contexts_[ "main" ]       = [ self.main, self.mainWidgets_ ]
 
-  def runProfile( self, interval=1.0 ) :
-    if self.model_.currentTime_ == -1 : self.model_.currentTime_ = 0
-    
+  def runTimer( self, interval=1.0 ) :
+    if not self.runningTimer_ : return
+        
     if self.model_.currentTime_ > self.model_.getCurrentTotalTime() :
       # Stop yourself before you wreck yourself
       print( "Profile finished... Stopping [ total profile time : " + str( self.model_.getCurrentTotalTime() ) + "]" )
-      self.model_.currentTime_ = -1
-      self.mainWidgets_.widgets_[ "PreviewGraph" ].drawPosX_ = 0
-      self.profileRunner_.stop()
+      self.handleStopTimer()
 
     #print( "Current time is : " + str( self.model_.currentTime_ ) + " seconds" )
     # Write data to hw controller
@@ -253,9 +255,7 @@ class Renderer( object ) :
       
     if self.model_.getCurrentConfig() is not None:
       # print( "Previewing config : " + self.model_.getCurrentConfig().name_ )
-      
-      
-      
+           
       for name, dataset in self.model_.getCurrentConfig().datasets_.items() :
         data = np.array( ( dataset.time_,
                            dataset.value_ ) )
@@ -363,6 +363,14 @@ class Renderer( object ) :
     
   def handleConfigs( self, direction ) :
     currentIdx = self.configWidgets_.getCurrentWidgetIndex( )
+
+    # We are actively running a profile and are changing, abort
+    if self.runningTimer_ or self.model_.currentTime_ != 0 :
+      if self.model_.currentConfigIdx_ != currentIdx :
+        self.handleStartPauseTimer( )
+        # This does extra and resets values
+        self.handleStopTimer( )
+        
     self.model_.currentConfigIdx_ = currentIdx
     
     # Loop and move everything up, hiding others        
@@ -408,20 +416,41 @@ class Renderer( object ) :
                                 )
     
     name = config.name_ + " - " + str( len( self.configWidgets_.widgetsList_ ) )
-    cfgWidget.addInput( self.profileRunner_.start )
+    cfgWidget.addInput( self.handleStartPauseTimer )
     print( "Adding config widget : " + name ) 
-    self.configWidgets_.addWidget( name, cfgWidget )
+    self.configWidgets_.addWidget( name, cfgWidget, takeImmediateInput=True )
 
   def handleResAdjustUp( self, direction ) :
     if direction == "press" :
       self.model_.timeResolution_ = np.minimum( self.model_.timeResolution_ + 5, 60 )
-      self.mainWidgets_.widgets_[ "Resolution" ].text_ = "Timescale\n" + str( self.model_.timeResolution_ ) + " sec"
+      self.mainWidgets_.widgets_[ "Resolution" ].text_ = "Interval " + str( self.model_.timeResolution_ ) + " sec"
 
   def handleResAdjustDown( self, direction ) :
     if direction == "press" :
       self.model_.timeResolution_ = np.maximum( self.model_.timeResolution_ - 5, 5 )
-      self.mainWidgets_.widgets_[ "Resolution" ].text_ = "Timescale\n" + str( self.model_.timeResolution_ ) + " sec"
-    
+      self.mainWidgets_.widgets_[ "Resolution" ].text_ = "Interval " + str( self.model_.timeResolution_ ) + " sec"
+
+  def handleStartPauseTimer( self ) :
+    if self.runningTimer_ :
+      self.timer_.stop()
+      self.runningTimer_ = False
+      print( "Pausing profile" )
+    else :
+      self.timer_.start()
+      self.runningTimer_ = True
+      # Our first time in here
+      if self.model_.currentTime_ == -1 :
+        self.model_.currentTime_ = 0
+        
+      print( "Starting profile" )
+
+  def handleStopTimer( self ) :
+    self.timer_.stop()
+    self.runningTimer_ = False
+    self.model_.currentTime_ = -1
+    self.mainWidgets_.widgets_[ "PreviewGraph" ].drawPosX_ = 0
+    print( "Stopping profile" )
+
   def buttonPress( self, button ) :
 
     pressType = self.hwctrl_.buttonMap_[ button.pin.number ]
@@ -557,9 +586,13 @@ class DataModel( object ) :
     return currentData
 
 class BlynkInterface( object ) :
-  def __init__( self, auth, renderer, server=None ) :
+  def __init__( self, auth, server=None ) :
+
+    # PRINT HACKS
+    self._print = print
+    builtins.print = self.debugPrint
     
-    self.renderer_ = renderer
+    self.renderer_ = None
     # No SSL, so 8080
     self.blynk_    = blynklib.Blynk( auth, server=server or "blynk-cloud.com", port=8080 )
     # WHYYYYYY
@@ -593,7 +626,7 @@ class BlynkInterface( object ) :
 
     self.pins_[ "manual_rst_all"     ] = { "vnum" :  9, "value" : 0, "ignoreZero" : False }
     self.pins_[ "manual_start_timer" ] = { "vnum" : 10, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "manual_stop_timer" ] = { "vnum" : 51, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_stop_timer" ] = { "vnum" : 51, "value" : 0, "ignoreZero" : True }
     
     self.pins_[ "manual_hardware_preview" ] = { "vnum" : 11, "value" : 0, "ignoreZero" : False }
     self.pins_[ "manual_mode"      ] = { "vnum" : 12, "value" : 0, "ignoreZero" : False }
@@ -622,7 +655,7 @@ class BlynkInterface( object ) :
     self.pins_[ "edit_value"   ] = { "vnum" : 29, "value" : 0, "ignoreZero" : False }
     self.pins_[ "edit_time "   ] = { "vnum" : 30, "value" : 0, "ignoreZero" : False }
 
-    self.pins_[ "edit_run_preview"  ] = { "vnum" : 31, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "edit_run_preview"  ] = { "vnum" : 31, "value" : 0, "ignoreZero" : False }
     self.pins_[ "edit_point"    ] = { "vnum" : 32, "value" : 0, "ignoreZero" : False }
     self.pins_[ "edit_add"      ] = { "vnum" : 33, "value" : 0, "ignoreZero" : True }
     self.pins_[ "edit_delete_point" ] = { "vnum" : 34, "value" : 0, "ignoreZero" : True }
@@ -647,14 +680,16 @@ class BlynkInterface( object ) :
     self.pins_[ "settings_auto_half_notify_disabled" ] = { "vnum" : 49, "value" : 0, "ignoreZero" : False }
     self.pins_[ "settings_auto_full_notify_disabled" ] = { "vnum" : 50, "value" : 0, "ignoreZero" : False }
     
-    
-
-    
-    
-
     self.virtualPinMap_ = {}
     for key, value in self.pins_.items() :
-      self.virtualPinMap_[ value[ "vnum" ] ] = { "name" : key } 
+      self.virtualPinMap_[ value[ "vnum" ] ] = { "name" : key }
+      self.pins_[ key ][ "handler" ] = self.main_handler
+
+      if "edit" in key :
+        self.pins_[ key ][ "handler" ] = self.edit_handler
+      elif "settings" in key :
+        self.pins_[ key ][ "handler" ] = self.settings_handler
+        
     
     print( "Manual decoration for Blynk Server..." )
     blynklib.Blynk.handle_event( self.blynk_, "connect")( self.connect_handler )
@@ -663,15 +698,53 @@ class BlynkInterface( object ) :
     blynklib.Blynk.handle_event( self.blynk_, 'write V*' )( self.pinwrite_handler )
     # blynklib.Blynk.handle_event( self.blynk_, 'write *' )( self.pinwrite_handler )
 
+  def debugPrint( self, *args, **kw ) :
+    oldstdout = sys.stdout
+    newstdout = io.StringIO()
+    sys.stdout = newstdout
+    
+    self._print( *args, **kw )
+    output = newstdout.getvalue()[:-1]
+    
+    if hasattr( self, "blynk_" ) and self.blynk_ is not None and self.blynk_._socket is not None :
+      if hasattr( self, "pins_" ) and "settings_terminal" in  self.pins_ :
+        self.blynk_.virtual_write( self.pins_[ "settings_terminal" ][ "vnum" ], output )
 
+    sys.stdout = oldstdout
+    self._print( output )
+
+  def main_handler( self, pin ) :
+    print( "In main handler via pin " + str( pin ) + " called " + self.virtualPinMap_[ pin ][ "name" ] )
+
+    if self.virtualPinMap_[pin]["name"] == 
+
+  def edit_handler( self, pin ) :
+    print( "In edit handler via pin " + str( pin ) + " called " + self.virtualPinMap_[ pin ][ "name" ] )
+
+  def settings_handler( self, pin ) :
+    print( "In settings handler via pin " + str( pin ) + " called " + self.virtualPinMap_[ pin ][ "name" ] )
+
+
+      
   def communicate( self ) :
     while self.com_ :
       self.blynk_.run()
+
+      if self.renderer_ is not None :
+        if self.renderer_.runningTimer_ :
+          currentData   = self.renderer_.model_.getCurrentData( )
+        
+          for name, value in currentData.items() :      
+            if name == "zaxis" :
+              self.blynk_.virtual_write( 0, value )
+            elif name == "fan" :
+              self.blynk_.virtual_write( 1, value )
+            elif name == "lights" :
+              self.blynk_.virtual_write( 2, value )
       
   def run( self ) :
     self.blynkthread_.start()
-    print( "Waiting for server to start..." )
-        
+    print( "Waiting for server to start..." )       
 
   def stop( self ) :
     self.blynk_.notify( "BAWCS Offline" )
@@ -690,7 +763,7 @@ class BlynkInterface( object ) :
     msg += "Curing\n"
     msg += "Station\n\n"
     msg += "- Anthony Islas"
-    self.blynk_.virtual_write( self.pins_[ "main_terminal" ], msg + "\n" )
+    self.blynk_.virtual_write( self.pins_[ "main_terminal" ][ "vnum" ], msg + "\n" )
     
     print( "RTC sync request was sent" )
 
@@ -706,12 +779,19 @@ class BlynkInterface( object ) :
     if pin in self.virtualPinMap_ :
       if ( value != 0 and 0 not in value and '0' not in value ) or not self.pins_[ self.virtualPinMap_[pin]["name"] ][ "ignoreZero" ] :
         print( "You modified " + str( pin ) + " to value " + str( value ) + " which is " + self.virtualPinMap_[pin]["name"] )
+        self.pins_[ self.virtualPinMap_[pin]["name"]]["value"] = value
+        self.pins_[ self.virtualPinMap_[pin]["name"]]["handler"]( pin )
       else :
         print( "Fallthrough... we ignored " + str( pin ) + " which is " + self.virtualPinMap_[pin]["name"] )
   
 if __name__ == '__main__':
   
   try:
+    blynkint = None
+    if USE_BLYNK :
+      blynkint = BlynkInterface( open( "cred/.secrets" ).read(), "192.168.0.10" )
+      blynkint.run()
+      
     hwctrl   = HardwareController( )
     print( "HW Controller Set Up" )
 
@@ -722,17 +802,16 @@ if __name__ == '__main__':
     renderer = Renderer( hwctrl, dataModel )
     print( "Renderer Set Up" )
 
-    if USE_BLYNK :
-      blynkint = BlynkInterface( open( "cred/.secrets" ).read(), renderer, "192.168.0.10" )
-      blynkint.run()
-      
-
     # Disable luma's stupid fucking cleanup since we can't configure it
     c = Capture()
     atexit.unregister(c)
     print( c.captured )
     atexit.unregister( c.captured[0] )
 
+    # Link the two
+    if blynkint is not None :
+      blynkint.renderer_ = renderer
+    
     renderer.render()
     while not renderer.quit() :
       time.sleep( 1 )

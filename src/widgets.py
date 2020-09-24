@@ -26,6 +26,7 @@ class Widget( object ) :
     self.selected_ = False
     self.swapOnSelect_ = True
     self.canSelect_    = True
+    self.takeInputOnFocus_ = False
 
     self.canvas_ = None
     self.links_  = {}
@@ -95,8 +96,14 @@ class Widget( object ) :
   def defocus( self ) :
     self.hasFocus_ = False
     if self.swapOnFocus_ :
-      self.swapCurrentColors( self.fg_, self.bg_ )
+      if self.selected_ :
+        self.swapCurrentColors( self.selectFg_, self.selectBg_ )
+      else :
+        self.swapCurrentColors( self.fg_, self.bg_ )
 
+  def takeImmediateInput( self ) :
+    return self.takeInputOnFocus_
+      
   def addInput( self, handler ) :
     self.onInput_.append( handler )
     
@@ -328,7 +335,8 @@ class WidgetManager( Widget ) :
       if not self.currentWidget_.hasFocus() :
         if direction == "press" :
           self.currentWidget_.focus()
-          # self.currentWidget_.onInput( direction )
+          if self.currentWidget_.takeImmediateInput() :
+            self.currentWidget_.onInput( direction )
         else :
           # First filter by all widgets to the direction of what we want
           # then by how close they
@@ -360,11 +368,12 @@ class WidgetManager( Widget ) :
 
     # print( "Current Widget for " + self.name_ + " is " + self.currentWidget_.name_ + " ( has focus : " + str( self.currentWidget_.hasFocus() ) + " / is selected " + str( self.currentWidget_.isSelected() ) + ") " )
 
-  def addWidget( self, name, widget, canSelect=True ) :
+  def addWidget( self, name, widget, canSelect=True, takeImmediateInput=False ) :
     if self.defaultWidget_ is None : self.defaultWidget_ = widget
     self.widgets_[ name ] = widget
     self.widgetsList_.append( widget )
     self.widgets_[ name ].canSelect_ = canSelect
+    self.widgets_[ name ].takeInputOnFocus_ = takeImmediateInput
     
     # Revalutate center
     if self.adjustCentroid_ :
