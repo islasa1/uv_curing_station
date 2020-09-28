@@ -1,10 +1,13 @@
+from enum import Enum
+import glob
+import json
+import sys
 
 # What State the hardware control is in
 class ControlModes( Enum ) :
   AUTO_RUN = 0
   MANUAL   = 1
   MANUAL_TIME = 2
-  
   
 
 class DataSet( object ) :

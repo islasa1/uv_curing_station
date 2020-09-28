@@ -1,3 +1,8 @@
+import gpiozero as gz
+from luma.lcd.device import st7735 as luma_st7735
+from luma.core.interface.serial import spi as luma_spi
+import luma.core.render as luma_render
+import luma.core.sprite_system as luma_sprite
 
 # Shield
 #KEY_UP_PIN     = 6

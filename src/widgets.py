@@ -1,4 +1,3 @@
-import PIL
 import numpy as np
 from inspect import signature
 
