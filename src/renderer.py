@@ -1,8 +1,9 @@
 import multitimer
 import numpy as np
 import threading
-import time
 from PIL import ImageFont, ImageColor, Image
+import luma.core.sprite_system as luma_sprite
+import luma.core.render as luma_render
 
 import hardware
 import model
@@ -331,26 +332,31 @@ class Renderer( object ) :
       self.runningTimer_ = False
       print( "Pausing profile" )
     else :
-      self.timer_.start()
-      self.runningTimer_ = True
-      # Our first time in here
-      if self.model_.currentTime_ == -1 :
-        self.model_.currentTime_ = 0
+      if self.model_.getCurrentConfig() is not None :
+        self.timer_.start()
+        self.runningTimer_ = True
+        # Our first time in here
+        if self.model_.currentTime_ == -1 :
+          self.model_.currentTime_ = 0
+          self.model_.getCurrentTotalTime()
         
-      print( "Starting profile" )
+        print( "Starting profile" )
 
   def handleStopTimer( self ) :
-    self.timer_.stop()
+    try :
+      self.timer_.stop()
+      print( "Stopping profile" )
+    except:
+      pass
     self.runningTimer_ = False
     self.model_.currentTime_ = -1
     self.mainWidgets_.widgets_[ "PreviewGraph" ].drawPosX_ = 0
-    print( "Stopping profile" )
-
+    
   def buttonPress( self, button ) :
 
     pressType = self.hwctrl_.buttonMap_[ button.pin.number ]
     
-    if self.model_.controlMode_ == ControlModes.AUTO_RUN and pressType == "select" :
+    if self.model_.controlMode_ == model.ControlModes.AUTO_RUN and pressType == "select" :
       print( "Hardware is manual mode, user cannot select" )
     else :
       # Get the current context widget manager

@@ -1,8 +1,9 @@
+from enum import Enum
+
 import gpiozero as gz
 from luma.lcd.device import st7735 as luma_st7735
 from luma.core.interface.serial import spi as luma_spi
-import luma.core.render as luma_render
-import luma.core.sprite_system as luma_sprite
+
 
 # Shield
 #KEY_UP_PIN     = 6
@@ -31,6 +32,13 @@ ZAXIS_SLP  = 0
 
 FAN_CTRL   = 15
 UV_CTRL    = 14
+
+class StepSize( Enum ) :
+  FULL    = 1
+  HALF    = 2
+  QUARTER = 3
+  EIGHTH  = 4
+  
 
 class HardwareController( object ) :
   def __init__( self ) :

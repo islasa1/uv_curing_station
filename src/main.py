@@ -1,20 +1,10 @@
 #!/usr/bin/env python3
 
-# import gpiozero as gz
-# from luma.lcd.device import st7735 as luma_st7735
-# from luma.core.interface.serial import spi as luma_spi
-# import luma.core.render as luma_render
-# import luma.core.sprite_system as luma_sprite
-
-# from PIL import ImageFont, ImageColor, Image
-
-# import multitimer
-# import widgets
-
 USE_BLYNK=True
 
 import signal
 import atexit
+import time
 
 import hardware
 import renderer
