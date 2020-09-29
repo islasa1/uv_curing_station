@@ -48,16 +48,16 @@ class BlynkInterface( object ) :
     self.pins_[ "cpu_temperature" ] = { "vnum" : 250, "value" : 0, "ignoreZero" : False, "int" : True }
 
     # Manual Mode
-    self.pins_[ "zaxis"            ] = { "vnum" : 0, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "zaxis"            ] = { "vnum" : 0, "value" : 0, "ignoreZero" : False, "int" : False }
     self.pins_[ "manual_zaxis_inc" ] = { "vnum" : 3, "value" : 1, "ignoreZero" : False, "int" : True }
     self.pins_[ "manual_zaxis_rst" ] = { "vnum" : 6, "value" : 0, "ignoreZero" : True, "int" : True }
 
-    self.pins_[ "fan"            ] = { "vnum" : 1, "value" : 0, "ignoreZero" : False, "int" : True }
-    self.pins_[ "manual_fan_inc" ] = { "vnum" : 4, "value" : 0.001, "ignoreZero" : False, "int" : True }
+    self.pins_[ "fan"            ] = { "vnum" : 1, "value" : 0, "ignoreZero" : False, "int" : False }
+    self.pins_[ "manual_fan_inc" ] = { "vnum" : 4, "value" : 0.001, "ignoreZero" : False, "int" : False }
     self.pins_[ "manual_fan_rst" ] = { "vnum" : 7, "value" : 0, "ignoreZero" : True, "int" : True }
     
-    self.pins_[ "uvled"            ] = { "vnum" : 2, "value" : 0, "ignoreZero" : False, "int" : True }
-    self.pins_[ "manual_uvled_inc" ] = { "vnum" : 5, "value" : 0.001, "ignoreZero" : False, "int" : True }
+    self.pins_[ "uvled"            ] = { "vnum" : 2, "value" : 0, "ignoreZero" : False, "int" : False }
+    self.pins_[ "manual_uvled_inc" ] = { "vnum" : 5, "value" : 0.001, "ignoreZero" : False, "int" : False }
     self.pins_[ "manual_uvled_rst" ] = { "vnum" : 8, "value" : 0, "ignoreZero" : True, "int" : True }
 
     self.pins_[ "manual_rst_all"     ] = { "vnum" :  9, "value" : 0, "ignoreZero" : False, "int" : True }
@@ -171,7 +171,6 @@ class BlynkInterface( object ) :
       elif key == "zaxis" :
         self.pins_[ "zaxis"            ]["value"] = self.renderer_.model_.getCurrentData( "zaxis" )
       elif key == "manual_zaxis_inc" :
-        print( "Z Axis Inc is : " + str( self.pins_[ "manual_zaxis_inc" ]["value"] ) )
         #self.pins_[ "manual_zaxis_inc" ]["value"] = 0
         self.blynk_.set_property( self.pins_[ "manual_zaxis_inc" ][ "vnum" ], "labels", *[e.name for e in hardware.StepSize] )
       # elif key == "manual_zaxis_rst" :
@@ -272,14 +271,14 @@ class BlynkInterface( object ) :
         self.pins_[ "settings_global_fan_disabled"   ]["value"] = int( not( self.renderer_.model_.fanEnabled_ ) )
       elif key == "settings_global_uvled_disabled" :
         self.pins_[ "settings_global_uvled_disabled" ]["value"] = int( not( self.renderer_.model_.uvledEnabled_ ) )
-      elif key == "settings_manual_half_notify_disabled" :
-        self.pins_[ "settings_manual_half_notify_disabled" ]["value"] = 0
-      elif key == "settings_manual_full_notify_disabled" :
-        self.pins_[ "settings_manual_full_notify_disabled" ]["value"] = 0
-      elif key == "settings_auto_half_notify_disabled" :
-        self.pins_[ "settings_auto_half_notify_disabled" ]["value"] = 0
-      elif key == "settings_auto_full_notify_disabled" :
-        self.pins_[ "settings_auto_full_notify_disabled" ]["value"] = 0
+      # elif key == "settings_manual_half_notify_disabled" :
+      #   self.pins_[ "settings_manual_half_notify_disabled" ]["value"] = 0
+      # elif key == "settings_manual_full_notify_disabled" :
+      #   self.pins_[ "settings_manual_full_notify_disabled" ]["value"] = 0
+      # elif key == "settings_auto_half_notify_disabled" :
+      #   self.pins_[ "settings_auto_half_notify_disabled" ]["value"] = 0
+      # elif key == "settings_auto_full_notify_disabled" :
+      #   self.pins_[ "settings_auto_full_notify_disabled" ]["value"] = 0
 
       self.blynk_.virtual_write( self.pins_[key][ "vnum" ], self.pins_[key]["value"] )
 
@@ -297,14 +296,15 @@ class BlynkInterface( object ) :
     ## ZAXIS
     if self.virtualPinMap_[pin]["name"] == "zaxis" :
       if self.renderer_.model_.controlMode_ != model.ControlModes.AUTO_RUN :
-        self.renderer_.model_.currentData_[ "zaxis" ] = max( min( self.renderer_.model_.currentData_[ "zaxis" ] + self.pins_[ "zaxis" ][ "value" ], 310.0, 0.0 ) )
+        self.renderer_.model_.currentData_[ "zaxis" ] = max( min( self.renderer_.model_.currentData_[ "zaxis" ] + self.pins_[ "zaxis" ][ "value" ], 310.0 ), 0.0 ) 
       else :
         # Shoot back to user and revert
         print( "ERROR: Not in manual mode. Please switch to manual mode to change values..." )
         self.blynk_.virtual_write( pin, self.renderer_.model_.currentData_[ "zaxis" ] )
 
     elif self.virtualPinMap_[pin]["name"] == "manual_zaxis_inc" :
-      self.blynk_.set_property( self.pins_[ "zaxis" ][ "vnum" ], "step", hardware.StepSize( self.pins_[ "manual_zaxis_inc" ]["value"] ) )
+      print( "Setting z axis step to : " + str( hardware.StepSize( self.pins_[ "manual_zaxis_inc" ]["value"] ).value ) )
+      self.blynk_.set_property( self.pins_[ "zaxis" ][ "vnum" ], "step", hardware.StepSize( self.pins_[ "manual_zaxis_inc" ]["value"] ).value )
     elif self.virtualPinMap_[pin]["name"] == "manual_zaxis_rst" :
       self.pins_[ "manual_zaxis_rst" ]
 
@@ -345,19 +345,36 @@ class BlynkInterface( object ) :
       self.pins_[ "manual_uvled_rst" ]
     elif self.virtualPinMap_[pin]["name"] == "manual_rst_all" :
       self.pins_[ "manual_rst_all"     ]
-      
+
+    ###################################################################
+    ##
+    ## Start, Stop + Pause
     elif self.virtualPinMap_[pin]["name"] == "manual_start_timer" :
-      self.renderer_.handleStartPauseTimer( )       
-        
+      if not self.renderer_.runningTimer_ and self.renderer_.model_.controlMode_ == model.ControlModes.MANUAL :
+        # We are about to turn it on
+        self.renderer_.model_.currentTotalTime_ = self.pins_[ "manual_time_sec" ][ "value" ] + self.pins_[ "manual_time_min" ][ "value" ] * 60
+      
+      self.renderer_.handleStartPauseTimer( )
+      self.pins_[ "auto_runner" ][ "value" ] = int( not( self.pins_["manual_start_timer"]["value"] ) ) + 1 
+      self.blynk_.virtual_write( self.pins_["auto_runner"][ "vnum" ], self.pins_["auto_runner"]["value"] )
+      
+                    
     elif self.virtualPinMap_[pin]["name"] == "manual_stop_timer" :
       self.renderer_.handleStopTimer( )
+      self.pins_["manual_start_timer"]["value"] = 0
+      self.blynk_.virtual_write( self.pins_["manual_start_timer"][ "vnum" ], self.pins_["manual_start_timer"]["value"] )
+
       
+    ###################################################################
+    ##
+    ## Previewing  
     elif self.virtualPinMap_[pin]["name"] == "manual_hardware_preview" :
       self.pins_[ "manual_hardware_preview" ]
-    elif self.virtualPinMap_[pin]["name"] == "manual_mode" :
-      self.pins_[ "manual_mode"      ]
-    # elif self.virtualPinMap_[pin]["name"] == "manual_time_rem" :
-    #   self.pins_[ "manual_time_rem" ]
+      
+    
+    ###################################################################
+    ##
+    ## Manual Time Settings
     elif self.virtualPinMap_[pin]["name"] == "manual_time_sec" :
       if self.renderer_.model_.controlMode_ == model.ControlModes.MANUAL :
         self.renderer_.model_.currentTotalTime_ = self.pins_[ "manual_time_sec" ][ "value" ] + self.pins_[ "manual_time_min" ][ "value" ] * 60
@@ -373,20 +390,38 @@ class BlynkInterface( object ) :
         self.blynk_.virtual_write( self.pins_["manual_time_rem"][ "vnum" ], self.pins_["manual_time_rem"]["value"] )
       else :
         print( "WARNING: Time remaining will not be previewed while not in manual mode." )
+
         
     elif self.virtualPinMap_[pin]["name"] == "active_profile" :
       self.renderer_.model_.currentConfigIdx_ = int( self.pins_[ "active_profile" ]["value"] ) - 1
       refreshRender = True
+
+    ###################################################################
+    ##
+    ## LED Indicators
     elif self.virtualPinMap_[pin]["name"] == "auto_mode" :
       self.pins_[ "auto_mode"      ]
+    elif self.virtualPinMap_[pin]["name"] == "manual_mode" :
+      self.pins_[ "manual_mode"      ]
+
+    ###################################################################
+    ##
+    ## Start, Stop + Pause v2
     elif self.virtualPinMap_[pin]["name"] == "auto_runner" :
       # 1 is run   => start timer
       # 2 is pause => pause timer
       # 3 is stop  => stop  timer
       if self.pins_[ "auto_runner" ][ "value" ] == 1 and not self.renderer_.runningTimer_ :
+        if not self.renderer_.runningTimer_ and self.renderer_.model_.controlMode_ == model.ControlModes.MANUAL :
+          # We are about to turn it on
+          self.renderer_.model_.currentTotalTime_ = self.pins_[ "manual_time_sec" ][ "value" ] + self.pins_[ "manual_time_min" ][ "value" ] * 60
         self.renderer_.handleStartPauseTimer( )
+        self.pins_["manual_start_timer"]["value"] = 1
+        self.blynk_.virtual_write( self.pins_["manual_start_timer"][ "vnum" ], self.pins_["manual_start_timer"]["value"] )
       elif self.pins_[ "auto_runner" ][ "value" ] == 2 and self.renderer_.runningTimer_ :
         self.renderer_.handleStartPauseTimer( )
+        self.pins_["manual_start_timer"]["value"] = 0
+        self.blynk_.virtual_write( self.pins_["manual_start_timer"][ "vnum" ], self.pins_["manual_start_timer"]["value"] )
       elif self.pins_[ "auto_runner" ][ "value" ] == 3 :
         self.renderer_.handleStopTimer( )        
 
@@ -507,6 +542,9 @@ class BlynkInterface( object ) :
           if self.pins_[ "auto_mode" ][ "value" ] :
             self.pins_[ "auto_mode" ][ "value" ] = 0
             self.blynk_.virtual_write( self.pins_[ "auto_mode" ][ "vnum" ], self.pins_[ "auto_mode" ][ "value" ] )
+
+          self.pins_[ "manual_time_rem" ]["value"] = str( timedelta( seconds=int( self.renderer_.model_.currentTotalTime_ - max( self.renderer_.model_.currentTime_, 0 ) ) ) )
+          self.blynk_.virtual_write( self.pins_[ "manual_time_rem" ][ "vnum" ], self.pins_[ "manual_time_rem" ]["value"] )
             
         
         currentData   = self.renderer_.model_.getCurrentData( )
@@ -525,7 +563,7 @@ class BlynkInterface( object ) :
                ( self.renderer_.model_.controlMode_ == model.ControlModes.AUTO_RUN and not bool(self.pins_[ "settings_auto_half_notify_disabled" ]  ["value"]) ) )
              ) :
           if self.renderer_.model_.currentTime_ >= self.renderer_.model_.currentTotalTime_ / 2 :
-            self.blynk_.notify( "Cycle half-way done, time left : " + str( timedelta( seconds=int( self.renderer_.model_.currentTotalTime_ - self.renderer_.model_.currentTime_ ) ) ) + " h:m:s" )
+            self.blynk_.notify( "Cycle half-way done, time left : " + str( timedelta( seconds=int( self.renderer_.model_.currentTotalTime_ - self.renderer_.model_.currentTime_ ) ) ) + " s" )
             self.halfNotified_ = True
 
         if ( not self.fullNotified_ and
@@ -534,8 +572,11 @@ class BlynkInterface( object ) :
              ) :
           # We are within 1 second of done
           if ( self.renderer_.model_.currentTotalTime_ - self.renderer_.model_.currentTime_ ) < 1.0 :
-            self.blynk_.notify( "Cycle done, time elapsed : " + str( timedelta( seconds=int( self.renderer_.model_.currentTotalTime_ ) ) ) + " h:m:s" )
+            self.blynk_.notify( "Cycle done, time elapsed : " + str( timedelta( seconds=int( self.renderer_.model_.currentTotalTime_ ) ) ) + " s" )
             self.fullNotified_ = True
+            # Turn off anything that was running it before
+            self.pins_["manual_start_timer"]["value"] = 0
+            self.blynk_.virtual_write( self.pins_["manual_start_timer"][ "vnum" ], self.pins_["manual_start_timer"]["value"] )
 
         self.lock_.release()
         
@@ -616,6 +657,10 @@ class BlynkInterface( object ) :
           print( "ERROR: Bad pin value?" )
           print( str( e ) )
       else :
-        print( "Fallthrough... we ignored " + str( pin ) + " which is " + self.virtualPinMap_[pin]["name"] )
+        print( "Fallthrough... we ignored (but stored) : " + str( pin ) + " which is " + self.virtualPinMap_[pin]["name"] )
+        if self.pins_[ self.virtualPinMap_[pin]["name"]]["int"] :
+          self.pins_[ self.virtualPinMap_[pin]["name"]]["value"] = int(value[0])
+        else :
+          self.pins_[ self.virtualPinMap_[pin]["name"]]["value"] = float(value[0])
 
     self.lock_.release()

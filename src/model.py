@@ -106,16 +106,18 @@ class DataModel( object ) :
       return None
 
   def getCurrentTotalTime( self ) :
-    currentConfig = self.getCurrentConfig()
-
-    if currentConfig is None : return None
+    if self.controlMode_ == ControlModes.AUTO_RUN :
+      currentConfig = self.getCurrentConfig()
       
-    # Return longest time
-    totalTime = 0
-    for name, dataset in currentConfig.datasets_.items() :
-      totalTime = np.maximum( np.max( dataset.time_ ), totalTime )
+      if currentConfig is None : return None
+      
+      # Return longest time
+      totalTime = 0
+      for name, dataset in currentConfig.datasets_.items() :
+        totalTime = np.maximum( np.max( dataset.time_ ), totalTime )
 
-    self.currentTotalTime_ = totalTime
+        self.currentTotalTime_ = totalTime
+        
     return self.currentTotalTime_
 
   def getCurrentData( self, data=None ) :
