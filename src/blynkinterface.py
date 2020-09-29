@@ -40,82 +40,82 @@ class BlynkInterface( object ) :
     # We will keep track of whether to ignore writes of zero - this is to filter out button taps
     # that write zero out as a signal
     self.pins_ = {}
-    self.pins_[ "main_terminal" ] = { "vnum" : 255, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "settings_terminal" ] = { "vnum" : 254, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_terminal" ] = { "vnum" : 253, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "poweroff" ] = { "vnum" : 252, "value" : 0, "ignoreZero" : True }
-    self.pins_[ "cpu_usage"       ] = { "vnum" : 251, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "cpu_temperature" ] = { "vnum" : 250, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "main_terminal" ] = { "vnum" : 255, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "settings_terminal" ] = { "vnum" : 254, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_terminal" ] = { "vnum" : 253, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "poweroff" ] = { "vnum" : 252, "value" : 0, "ignoreZero" : True, "int" : True }
+    self.pins_[ "cpu_usage"       ] = { "vnum" : 251, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "cpu_temperature" ] = { "vnum" : 250, "value" : 0, "ignoreZero" : False, "int" : True }
 
     # Manual Mode
-    self.pins_[ "zaxis"            ] = { "vnum" : 0, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "manual_zaxis_inc" ] = { "vnum" : 3, "value" : 1, "ignoreZero" : False }
-    self.pins_[ "manual_zaxis_rst" ] = { "vnum" : 6, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "zaxis"            ] = { "vnum" : 0, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "manual_zaxis_inc" ] = { "vnum" : 3, "value" : 1, "ignoreZero" : False, "int" : True }
+    self.pins_[ "manual_zaxis_rst" ] = { "vnum" : 6, "value" : 0, "ignoreZero" : True, "int" : True }
 
-    self.pins_[ "fan"            ] = { "vnum" : 1, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "manual_fan_inc" ] = { "vnum" : 4, "value" : 0.001, "ignoreZero" : False }
-    self.pins_[ "manual_fan_rst" ] = { "vnum" : 7, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "fan"            ] = { "vnum" : 1, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "manual_fan_inc" ] = { "vnum" : 4, "value" : 0.001, "ignoreZero" : False, "int" : True }
+    self.pins_[ "manual_fan_rst" ] = { "vnum" : 7, "value" : 0, "ignoreZero" : True, "int" : True }
     
-    self.pins_[ "uvled"            ] = { "vnum" : 2, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "manual_uvled_inc" ] = { "vnum" : 5, "value" : 0.001, "ignoreZero" : False }
-    self.pins_[ "manual_uvled_rst" ] = { "vnum" : 8, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "uvled"            ] = { "vnum" : 2, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "manual_uvled_inc" ] = { "vnum" : 5, "value" : 0.001, "ignoreZero" : False, "int" : True }
+    self.pins_[ "manual_uvled_rst" ] = { "vnum" : 8, "value" : 0, "ignoreZero" : True, "int" : True }
 
-    self.pins_[ "manual_rst_all"     ] = { "vnum" :  9, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "manual_start_timer" ] = { "vnum" : 10, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "manual_stop_timer" ] = { "vnum" : 51, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "manual_rst_all"     ] = { "vnum" :  9, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "manual_start_timer" ] = { "vnum" : 10, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "manual_stop_timer" ] = { "vnum" : 51, "value" : 0, "ignoreZero" : True, "int" : True }
     
-    self.pins_[ "manual_hardware_preview" ] = { "vnum" : 11, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "manual_mode"      ] = { "vnum" : 12, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_hardware_preview" ] = { "vnum" : 11, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "manual_mode"      ] = { "vnum" : 12, "value" : 0, "ignoreZero" : False, "int" : True }
 
-    self.pins_[ "manual_time_rem" ] = { "vnum" : 13, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "manual_time_sec" ] = { "vnum" : 14, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "manual_time_min" ] = { "vnum" : 15, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "manual_time_rem" ] = { "vnum" : 13, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "manual_time_sec" ] = { "vnum" : 14, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "manual_time_min" ] = { "vnum" : 15, "value" : 0, "ignoreZero" : False, "int" : True }
 
-    self.pins_[ "active_profile" ] = { "vnum" : 17, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "auto_mode"      ] = { "vnum" : 16, "value" : 255, "ignoreZero" : False }
-    self.pins_[ "auto_runner"    ] = { "vnum" : 18, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "mode_switcher"  ] = { "vnum" : 52, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "active_data"    ] = { "vnum" : 19, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "active_profile" ] = { "vnum" : 17, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "auto_mode"      ] = { "vnum" : 16, "value" : 255, "ignoreZero" : False, "int" : True }
+    self.pins_[ "auto_runner"    ] = { "vnum" : 18, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "mode_switcher"  ] = { "vnum" : 52, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "active_data"    ] = { "vnum" : 19, "value" : 0, "ignoreZero" : False, "int" : True }
     
-    self.pins_[ "edit_profile"          ] = { "vnum" : 20, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_resolution"       ] = { "vnum" : 21, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_hardware_preview" ] = { "vnum" : 22, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_profile_preview"  ] = { "vnum" : 23, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_profile"          ] = { "vnum" : 20, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_resolution"       ] = { "vnum" : 21, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_hardware_preview" ] = { "vnum" : 22, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_profile_preview"  ] = { "vnum" : 23, "value" : 0, "ignoreZero" : False, "int" : True }
 
-    self.pins_[ "edit_zaxis_text"  ] = { "vnum" : 24, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_fan_text"    ] = { "vnum" : 25, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_uvled_text"  ] = { "vnum" : 26, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_time_text"   ] = { "vnum" : 27, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_zaxis_text"  ] = { "vnum" : 24, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_fan_text"    ] = { "vnum" : 25, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_uvled_text"  ] = { "vnum" : 26, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_time_text"   ] = { "vnum" : 27, "value" : 0, "ignoreZero" : False, "int" : True }
     
 
-    self.pins_[ "edit_data"    ] = { "vnum" : 28, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_value"   ] = { "vnum" : 29, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_time "   ] = { "vnum" : 30, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_data"    ] = { "vnum" : 28, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_value"   ] = { "vnum" : 29, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_time "   ] = { "vnum" : 30, "value" : 0, "ignoreZero" : False, "int" : True }
 
-    self.pins_[ "edit_run_preview"  ] = { "vnum" : 31, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_point"    ] = { "vnum" : 32, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_add"      ] = { "vnum" : 33, "value" : 0, "ignoreZero" : True }
-    self.pins_[ "edit_delete_point" ] = { "vnum" : 34, "value" : 0, "ignoreZero" : True }
-    self.pins_[ "edit_save"     ] = { "vnum" : 35, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "edit_run_preview"  ] = { "vnum" : 31, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_point"    ] = { "vnum" : 32, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_add"      ] = { "vnum" : 33, "value" : 0, "ignoreZero" : True, "int" : True }
+    self.pins_[ "edit_delete_point" ] = { "vnum" : 34, "value" : 0, "ignoreZero" : True, "int" : True }
+    self.pins_[ "edit_save"     ] = { "vnum" : 35, "value" : 0, "ignoreZero" : True, "int" : True }
 
-    self.pins_[ "edit_zaxis_disabled"   ] = { "vnum" : 36, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_fan_disabled"     ] = { "vnum" : 37, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_uvled_disabled"   ] = { "vnum" : 38, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_profile_name" ] = { "vnum" : 39, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "edit_filename"     ] = { "vnum" : 40, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "edit_zaxis_disabled"   ] = { "vnum" : 36, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_fan_disabled"     ] = { "vnum" : 37, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_uvled_disabled"   ] = { "vnum" : 38, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_profile_name" ] = { "vnum" : 39, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "edit_filename"     ] = { "vnum" : 40, "value" : 0, "ignoreZero" : False, "int" : True }
 
-    self.pins_[ "edit_duplicate"      ] = { "vnum" : 41, "value" : 0, "ignoreZero" : True }
-    self.pins_[ "edit_new_profile"    ] = { "vnum" : 42, "value" : 0, "ignoreZero" : True }
-    self.pins_[ "edit_delete_profile" ] = { "vnum" : 43, "value" : 0, "ignoreZero" : True }
+    self.pins_[ "edit_duplicate"      ] = { "vnum" : 41, "value" : 0, "ignoreZero" : True, "int" : True }
+    self.pins_[ "edit_new_profile"    ] = { "vnum" : 42, "value" : 0, "ignoreZero" : True, "int" : True }
+    self.pins_[ "edit_delete_profile" ] = { "vnum" : 43, "value" : 0, "ignoreZero" : True, "int" : True }
 
-    self.pins_[ "settings_global_zaxis_disabled" ] = { "vnum" : 44, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "settings_global_fan_disabled"   ] = { "vnum" : 45, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "settings_global_uvled_disabled" ] = { "vnum" : 46, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "settings_global_zaxis_disabled" ] = { "vnum" : 44, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "settings_global_fan_disabled"   ] = { "vnum" : 45, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "settings_global_uvled_disabled" ] = { "vnum" : 46, "value" : 0, "ignoreZero" : False, "int" : True }
 
-    self.pins_[ "settings_manual_half_notify_disabled" ] = { "vnum" : 47, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "settings_manual_full_notify_disabled" ] = { "vnum" : 48, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "settings_auto_half_notify_disabled" ] = { "vnum" : 49, "value" : 0, "ignoreZero" : False }
-    self.pins_[ "settings_auto_full_notify_disabled" ] = { "vnum" : 50, "value" : 0, "ignoreZero" : False }
+    self.pins_[ "settings_manual_half_notify_disabled" ] = { "vnum" : 47, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "settings_manual_full_notify_disabled" ] = { "vnum" : 48, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "settings_auto_half_notify_disabled" ] = { "vnum" : 49, "value" : 0, "ignoreZero" : False, "int" : True }
+    self.pins_[ "settings_auto_full_notify_disabled" ] = { "vnum" : 50, "value" : 0, "ignoreZero" : False, "int" : True }
     
     self.virtualPinMap_ = {}
     for key, value in self.pins_.items() :
@@ -606,7 +606,11 @@ class BlynkInterface( object ) :
       if ( value != 0 and 0 not in value and '0' not in value ) or not self.pins_[ self.virtualPinMap_[pin]["name"] ][ "ignoreZero" ] :
         try :
           print( "You modified " + str( pin ) + " to value " + str( value ) + " which is " + self.virtualPinMap_[pin]["name"] )
-          self.pins_[ self.virtualPinMap_[pin]["name"]]["value"] = float(value[0])
+          if self.pins_[ self.virtualPinMap_[pin]["name"]]["int"] :
+            self.pins_[ self.virtualPinMap_[pin]["name"]]["value"] = int(value[0])
+          else :
+            self.pins_[ self.virtualPinMap_[pin]["name"]]["value"] = float(value[0])
+            
           self.pins_[ self.virtualPinMap_[pin]["name"]]["handler"]( pin )
         except Exception as e :
           print( "ERROR: Bad pin value?" )
