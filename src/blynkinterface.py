@@ -547,15 +547,19 @@ class BlynkInterface( object ) :
           self.blynk_.virtual_write( self.pins_[ "manual_time_rem" ][ "vnum" ], self.pins_[ "manual_time_rem" ]["value"] )
             
         
-        currentData   = self.renderer_.model_.getCurrentData( )
-        
-        for name, value in currentData.items() :      
+        currentData = self.renderer_.model_.getCurrentData( )
+        dataId      = 0
+        for name, value in currentData.items() :
+          self.blynk_.virtual_write( self.pins_[ "active_data" ][ "vnum" ], "add", dataId, name, "{:.2f}".format( value ) )
+          dataId += 1
           if name == "zaxis" :
             self.blynk_.virtual_write( self.pins_[ "zaxis" ][ "vnum" ], value )
           elif name == "fan" :
             self.blynk_.virtual_write( self.pins_[ "fan" ][ "vnum" ], value )
           elif name == "lights" :
             self.blynk_.virtual_write( self.pins_[ "uvled" ][ "vnum" ], value )
+            
+        self.blynk_.virtual_write( self.pins_[ "active_data" ][ "vnum" ], "add", dataId, "time", "{:.2f}".format( self.renderer_.model_.currentTime_ ) )
 
         if ( not self.halfNotified_ and
              (
@@ -563,7 +567,7 @@ class BlynkInterface( object ) :
                ( self.renderer_.model_.controlMode_ == model.ControlModes.AUTO_RUN and not bool(self.pins_[ "settings_auto_half_notify_disabled" ]  ["value"]) ) )
              ) :
           if self.renderer_.model_.currentTime_ >= self.renderer_.model_.currentTotalTime_ / 2 :
-            self.blynk_.notify( "Cycle half-way done, time left : " + str( timedelta( seconds=int( self.renderer_.model_.currentTotalTime_ - self.renderer_.model_.currentTime_ ) ) ) + " s" )
+            self.blynk_.notify( "Cycle half-way done, time left : " + str( timedelta( seconds=int( self.renderer_.model_.currentTotalTime_ - self.renderer_.model_.currentTime_ ) ) ) + "s" )
             self.halfNotified_ = True
 
         if ( not self.fullNotified_ and
@@ -572,7 +576,7 @@ class BlynkInterface( object ) :
              ) :
           # We are within 1 second of done
           if ( self.renderer_.model_.currentTotalTime_ - self.renderer_.model_.currentTime_ ) < 1.0 :
-            self.blynk_.notify( "Cycle done, time elapsed : " + str( timedelta( seconds=int( self.renderer_.model_.currentTotalTime_ ) ) ) + " s" )
+            self.blynk_.notify( "Cycle done, time elapsed : " + str( timedelta( seconds=int( self.renderer_.model_.currentTotalTime_ ) ) ) + "s" )
             self.fullNotified_ = True
             # Turn off anything that was running it before
             self.pins_["manual_start_timer"]["value"] = 0
